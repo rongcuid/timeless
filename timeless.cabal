@@ -49,10 +49,21 @@ cabal-version:       >=1.10
 library
   -- Modules exported by the library.
   exposed-modules:  FRP.Timeless.Signal
+                  , FRP.Timeless.Session
+                  , FRP.Timeless.Run
   default-extensions:
-        GADTs
         Arrows
+        DeriveDataTypeable
+        DeriveFoldable
+        DeriveFunctor
+        DeriveTraversable
+        FlexibleInstances
+        FunctionalDependencies
+        GADTs
+        MultiParamTypeClasses
+        RankNTypes
         TupleSections
+
   -- Modules included in this library but not exported.
   -- other-modules:       
   
@@ -61,6 +72,8 @@ library
   
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.6
+                     , time
+                     , transformers
   
   -- Directories containing source files.
   hs-source-dirs:      src

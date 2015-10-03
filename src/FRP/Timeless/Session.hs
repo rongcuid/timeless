@@ -1,8 +1,9 @@
 -- |
--- Module:     Control.Wire.Session
+-- Module:     FRP.Timeless.Session
 -- Copyright:  (c) 2013 Ertugrul Soeylemez
+-- Copyright:  (c) 2015 Rongcui Dong
 -- License:    BSD3
--- Author: Ertugrul Soeylemez <es@ertes.de>
+-- Maintainer: Ertugrul Soeylemez <es@ertes.de>
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 module FRP.Timeless.Session

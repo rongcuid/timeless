@@ -48,9 +48,11 @@ cabal-version:       >=1.10
 
 library
   -- Modules exported by the library.
-  exposed-modules:  FRP.Timeless.Signal
-                  , FRP.Timeless.Session
-                  , FRP.Timeless.Run
+  exposed-modules: FRP.Timeless
+                 , FRP.Timeless.Signal
+                 , FRP.Timeless.Session
+                 , FRP.Timeless.Run
+                 , FRP.Timeless.Prefab
   default-extensions:
         Arrows
         DeriveDataTypeable

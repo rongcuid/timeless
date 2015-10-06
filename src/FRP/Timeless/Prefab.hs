@@ -6,13 +6,20 @@
 
 module FRP.Timeless.Prefab 
     (-- * Factory
+     -- ** Pure Wires
      mkPW
     , mkPWN
     , mkPW_
     , mkSW_
+    -- ** Special signals
     , mkKleisli_
+    -- ** Filters
+    , mkFW_
     )
     where
+
+import Control.Arrow
+import FRP.Timeless.Signal 
 
 -- | Make a pure stateful wire from given transition function
 mkPW :: (Monoid s) => (s -> a -> (b, Signal s m a b)) -> Signal s m a b
@@ -38,3 +45,6 @@ mkSW_ b0 f = mkPWN $ g b0
 mkKleisli_ :: (Monad m) => (a -> m b) -> Signal s m a b
 mkKleisli_ f =  mkGen_ $ \x -> fmap Just (f x)
 
+-- | Make a filter wire from predicate
+mkFW_ :: (a -> Bool) -> Signal s m [a] [a]
+mkFW_ pred = mkPW_ $ filter pred

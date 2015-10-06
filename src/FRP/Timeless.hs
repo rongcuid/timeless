@@ -28,4 +28,5 @@ import Control.Category
 import FRP.Timeless.Signal
 import FRP.Timeless.Run
 import FRP.Timeless.Session
+import FRP.Timeless.Prefab
 import Data.Time.Clock

@@ -20,6 +20,9 @@ module FRP.Timeless.Signal
     , mkGen
     , mkGenN
     , mkGen_
+
+    -- * Utilities
+    , lstrict
     )
     where
 
@@ -58,6 +61,50 @@ instance (Monad m) => Arrow (Signal s m) where
               let mx'y = (,) <$> mx' <*> my in
               lstrict (mx'y, first s')
 
+instance (Monad m) => ArrowChoice (Signal s m) where
+  left s =
+    SGen $ \ds mmx ->
+    liftM (fmap Left ***! left) . stepSignal s ds $
+    case mmx of
+      Just (Left x) -> Just x
+      Just (Right x) -> Nothing
+      Nothing -> Nothing
+      
+  right s =
+    SGen $ \ds mmx ->
+    liftM (fmap Right ***! right) . stepSignal s ds $
+    case mmx of
+      Just (Left x) -> Nothing
+      Just (Right x) -> Just x
+      Nothing -> Nothing
+
+  sl +++ sr =
+    SGen $ \ds mmx ->
+    case mmx of
+    Just (Left x) -> do
+      liftM2 (\ (mx,sl')(_,sr') -> lstrict (fmap Left mx, sl' +++ sr'))
+        (stepSignal sl ds (Just x)) (stepSignal sr ds Nothing)
+    Just (Right x) -> do
+      liftM2 (\ (_,sl')(mx,sr') -> lstrict (fmap Right mx, sl' +++ sr'))
+        (stepSignal sl ds Nothing) (stepSignal sr ds (Just x))
+    Nothing ->
+      liftM2 (\ (_,sl')(_,sr') -> lstrict (Nothing, sl' +++ sr'))
+        (stepSignal sl ds Nothing) (stepSignal sr ds Nothing)
+
+  sl ||| sr =
+    SGen $ \ds mmx ->
+    case mmx of
+    Just (Left x) -> do
+      liftM2 (\(mx,sl')(_,sr') -> lstrict (mx, sl' ||| sr'))
+        (stepSignal sl ds (Just x)) (stepSignal sr ds Nothing)
+    Just (Right x) -> do
+      liftM2 (\(_,sl')(mx,sr') -> lstrict (mx, sl' ||| sr'))
+        (stepSignal sl ds Nothing) (stepSignal sr ds (Just x))
+    Nothing -> do
+      liftM2 (\(_,sl')(_,sr') -> lstrict (Nothing, sl' ||| sr'))
+        (stepSignal sl ds Nothing) (stepSignal sr ds Nothing)
+      
+
 instance (Monad m) => Functor (Signal s m a) where
     fmap f SId = SArr $ fmap f
     fmap f (SConst mx) = SConst $ fmap f mx
@@ -68,9 +115,11 @@ instance (Monad m) => Applicative (Signal s m a) where
     pure = SConst . Just
     sf <*> sx = 
         SGen $ \ds mx ->
-            liftM2 (\(mf, sf) (mx, sx) -> lstrict (mf <*> mx, sf <*> sx))
-                   (stepSignal sf ds mx)
-                   (stepSignal sx ds mx)
+        liftM2 (\(mf, sf) (mx, sx) -> lstrict (mf <*> mx, sf <*> sx))
+        (stepSignal sf ds mx)
+        (stepSignal sx ds mx)
+
+            
 
 -- | Make a signal that inhibits forever
 mkEmpty :: (Monad m) => Signal s m a b

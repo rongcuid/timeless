@@ -30,6 +30,7 @@ import Prelude hiding ((.),id)
 import Control.Applicative
 import Control.Arrow
 import Control.Monad
+import Control.Monad.Fix
 import Data.Monoid 
 import Control.Category
 
@@ -103,7 +104,15 @@ instance (Monad m) => ArrowChoice (Signal s m) where
     Nothing -> do
       liftM2 (\(_,sl')(_,sr') -> lstrict (Nothing, sl' ||| sr'))
         (stepSignal sl ds Nothing) (stepSignal sr ds Nothing)
-      
+
+instance (MonadFix m) => ArrowLoop (Signal s m) where
+  loop s =
+    SGen $ \ds mx ->
+      liftM (fmap fst ***! loop) .
+      mfix $ \ ~(mx',_) ->
+        let d | Just (_,d) <- mx' = d
+              | otherwise = error "Feedback broken by inhibition"
+        in stepSignal s ds (fmap (,d) mx)
 
 instance (Monad m) => Functor (Signal s m a) where
     fmap f SId = SArr $ fmap f

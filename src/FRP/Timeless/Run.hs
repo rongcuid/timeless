@@ -10,7 +10,8 @@ module FRP.Timeless.Run
 
     ( -- * Testing signal network
       testSignal
-    , 
+      -- * Running a network
+    , runBox
     )
     where
 
@@ -21,8 +22,8 @@ import Data.Functor.Identity
 import System.IO
 
 -- | This function runs the given signal network using the given state delta
--- generator.  It constantly shows the output of the wire on one line on
--- stdout.  Press Ctrl-C to abort.
+-- generator.  It constantly shows the output of the wire on one line
+-- on stdout.  Press Ctrl-C to abort.
 
 testSignal ::
     (MonadIO m, Show b)
@@ -40,3 +41,14 @@ testSignal s0 n0 = loop s0 n0
             putStr "\027[K"
             hFlush stdout
         loop s' n'
+
+-- | This command drives a black box of signal network. The driver
+-- knows nothing about the internals of the network, only stops when
+-- the network is inhibited.
+runBox :: (Monad m) => Session m s -> Signal s m () () -> m ()
+runBox s n = do
+  (ds, s') <- stepSession s
+  (mq, n') <- stepSignal n ds (Just ())
+  case mq of
+    Just _ -> runBox s' n'
+    Nothing -> return ()

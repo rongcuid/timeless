@@ -17,7 +17,7 @@ module FRP.Timeless
     , module Control.Applicative
     , module Control.Arrow
     , module Control.Category
-    , NominalDiffTime
+    , module Data.Time.Clock
     )
     where
 

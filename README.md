@@ -19,7 +19,7 @@ Please do not expect this library to finish before t → ∞. I can only hope th
 
 Since `timeless` has only the core for now, it is hard to make a tutorial since there are almost no prefabricated signal networks and generators. However, I would still like to give some notes as a hint.
 
-For small examples, the `README` in `netwire` repository should be applicable here.
+For small examples, the `README` in `netwire` repository should be applicable here. 
 
 For core documentaton, read the comments in the code. I try to make them as clear as possible. Note that a "signal" inhibits, but a "wire" never does, and the `lstrict` things are there to prevent space leak. The things with no comments are basically directly modified from `netwire`. They are nested so deeply that I cannot easily explain them in comments. But if they work, just use them. They are pure code, so they should work anyway.
 

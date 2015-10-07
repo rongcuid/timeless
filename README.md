@@ -8,7 +8,7 @@ This file will be literate Haskell in Markdown format, and should compile direct
 
 The motivation to rewrite `netwire` as `timeless` is because `netwire` lacks proper documentation, and its `5.*` version is quite incomplete comparing to `4.*`. At the same time, it doesn't seem to be actively developed anymore, so I decide to write most if not all necessary things from scratch to gain a better understanding on, well, everything.
 
-Please do not expect this library to finish before t → ∞. I can only hope that I will not abandon this project like the other ones that I did.
+Please do not expect this library to finish before t → ∞. I can only hope that I will not abandon this project like the other ones that I did. I would really like to keep the repo private until I make it rock solid (so that I am less likely to lose motivation due to false satisfaction), but I fear that my hard drive may crash some time in the future (which it just did for my other computer), so I push the repo up now.
 
 ## What is Timeless? (do a `s/is/will be/g` in your head, for now)
 

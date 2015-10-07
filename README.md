@@ -27,7 +27,7 @@ Inspired by my own answer regarding `netwire` on StackOverflow: [1][1], [2][2], 
 
 This may not be the most elegent way to form a large program, but at least for now, it works very, very well on single-threaded small test programs I have written. As shown in the StackOverflow posts, the main logic of programs are quite well separated, and the arrow syntax makes things really nice. Of course, almost no `IO` is exposed, and most of the program is purely functional.
 
-To convert the examples in the posts into `timeless`, simply import `FRP.Timeless` instead of anything from `Control.Wire`, and change all `Wire s e m a b` to `Signal s m a b` (Of course, the actual types are different), all `mkSF` to `mkPW`, and `kKleisli` to `mkKleisli_` (I may miss something, but I will give real examples).
+To convert the examples in the posts into `timeless`, simply import `FRP.Timeless` instead of anything from `Control.Wire`, and change all `Wire s e m a b` to `Signal s m a b` (Of course, the actual types are different), all `mkSF` to `mkPW`, and `mkKleisli` to `mkKleisli_` (I may miss something, but I will give real examples).
 
 
 [1]:http://stackoverflow.com/questions/30905930/what-can-be-a-minimal-example-of-game-written-in-haskell

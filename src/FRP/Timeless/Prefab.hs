@@ -5,21 +5,25 @@
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 module FRP.Timeless.Prefab 
-    (-- * Factory
-     -- ** Pure Wires
-     mkPW
-    , mkPWN
-    , mkPW_
-    , mkSW_
-    -- ** Special signals
-    , mkKleisli_
-    -- ** Filters
-    , mkFW_
-    )
-    where
+       (
+         -- * Factory
+         -- ** Pure Wires
+         mkPW
+       , mkPWN
+       , mkPW_
+       , mkSW_
+         -- ** Special signals
+       , mkKleisli_
+         -- ** Filters
+       , mkFW_
+         -- * Prefab
+       , sDebug
+       )
+       where
 
 import Control.Arrow
-import FRP.Timeless.Signal 
+import FRP.Timeless.Signal
+import Control.Monad.IO.Class
 
 -- | Make a pure stateful wire from given transition function
 mkPW :: (Monoid s) => (s -> a -> (b, Signal s m a b)) -> Signal s m a b
@@ -48,3 +52,8 @@ mkKleisli_ f =  mkGen_ $ \x -> fmap Just (f x)
 -- | Make a filter wire from predicate
 mkFW_ :: (a -> Bool) -> Signal s m [a] [a]
 mkFW_ pred = mkPW_ $ filter pred
+
+-- | A signal wire for easy debugging inside arrow syntax
+sDebug :: (MonadIO m) => Signal s m String ()
+sDebug = mkKleisli_ $ liftIO . putStrLn . ("[DEBUG] "++)
+

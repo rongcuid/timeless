@@ -10,17 +10,6 @@ module FRP.Timeless.Signal
      Signal(..)
     , stepSignal
     
-    -- * Constructing Signals
-    , mkEmpty
-    , mkId
-    , mkConst
-    , mkPure
-    , mkPureN
-    , mkPure_
-    , mkGen
-    , mkGenN
-    , mkGen_
-
     -- * Utilities
     , lstrict
     )
@@ -35,12 +24,13 @@ import Data.Monoid
 import Control.Category
 
 data Signal s m a b where
-    SId :: Signal t m a a
+    SId :: Signal s m a a
     SConst :: Maybe b -> Signal s m a b
     SArr :: (Maybe a -> Maybe b) -> Signal s m a b
     SPure :: (s -> Maybe a -> (Maybe b, Signal s m a b)) -> Signal s m a b
     SGen :: (Monad m) => 
             (s -> Maybe a -> m (Maybe b, Signal s m a b)) -> Signal s m a b
+
 
 instance (Monad m) => Category (Signal s m) where
     id = SId
@@ -129,81 +119,6 @@ instance (Monad m) => Applicative (Signal s m a) where
         (stepSignal sx ds mx)
 
             
-
--- | Make a signal that inhibits forever
-mkEmpty :: (Monad m) => Signal s m a b
-mkEmpty = SConst Nothing
-
--- | The Identity Signal
-mkId :: (Monad m) => Signal s m a a 
-mkId = SId
-
--- | Make a constant Signal
-mkConst :: (Monad m) => Maybe b -> Signal s m a b
-mkConst = SConst 
-
--- | Make a pure stateful signal from given transition function
-mkPure :: (Monoid s) => (s -> a -> (Maybe b, Signal s m a b)) -> Signal s m a b
-mkPure f = go mempty
-    where
-      go t0 = SPure $ \ds mx ->
-          let t = t0 <> ds in 
-          t `seq` 
-            case mx of
-              Just x -> lstrict (f t x)
-              Nothing -> (Nothing, go t)
-
--- | Make a pure stateful signal from given time independant transition function
-mkPureN :: (a -> (Maybe b, Signal s m a b)) -> Signal s m a b
-mkPureN f = go 
-    where
-      go = SPure $ \_ mx ->
-           case mx of
-             Just x -> lstrict (f x)
-             Nothing -> (Nothing, go)
-
--- | Make a pure stateless signal from given function
-mkPure_ :: (a -> (Maybe b)) -> Signal s m a b
-mkPure_ f = go 
-    where
-      go = SPure $ \_ mx ->
-           case mx of
-             Just x -> lstrict (f x, go)
-                 -- ^ From (m (Maybe b)) to (m (Maybe b, Signal s m a b))
-             Nothing -> (Nothing, go)
-
--- | Make a stateful signal from given (Monadic) transition function
-mkGen :: (Monad m, Monoid s) => (s -> a -> m (Maybe b, Signal s m a b)) -> Signal s m a b
-mkGen f = go mempty
-    where
-      go s0 = SGen $ \ds mx ->
-          let s = s0 <> ds in 
-          s `seq` 
-            case mx of
-              Just x -> liftM lstrict (f s x)
-              Nothing -> return (Nothing, go s)
-
--- | Make a stateful signal from given (Monadic) time independant transition function
-mkGenN :: (Monad m) => (a -> m (Maybe b, Signal s m a b)) -> Signal s m a b
-mkGenN f = go 
-    where
-      go = SGen $ \_ mx ->
-           case mx of
-             Just x -> liftM lstrict (f x)
-             Nothing -> return (Nothing, go)
-
--- | Make a stateless signal from given function
-mkGen_ :: (Monad m) => (a -> m (Maybe b)) -> Signal s m a b
-mkGen_ f = go 
-    where
-      go = SGen $ \_ mx ->
-           case mx of
-             Just x -> 
-                 let mmx' = f x in
-                 liftM (lstrict . (, go)) mmx'
-                 -- ^ From (m (Maybe b)) to (m (Maybe b, Signal s m a b))
-             Nothing ->
-                 return (Nothing, go)
 
 -- | Steps a signal in certain time step
 stepSignal :: (Monad m) => Signal s m a b 

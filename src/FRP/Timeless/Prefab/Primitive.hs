@@ -1,10 +1,36 @@
 -- |
--- Module:     FRP.Timeless.Prefab.Factory
+-- Module:     FRP.Timeless.Prefab.Primitive
 -- Copyright:  (c) 2015 Rongcui Dong
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
-module FRP.Timeless.Prefab.Factory
+module FRP.Timeless.Prefab.Primitive
+    (
+      -- * Basic Signals
+      mkEmpty
+    , mkId
+    , mkConst
+    , mkPure
+    , mkGen
+      -- * Pure Signals
+      -- ** Wires (Never inhibits by themselves)
+    , mkPW
+    , mkPWN
+    , mkPW_
+    , mkSW_
+      -- ** Signals
+    , mkPure
+    , mkPureN
+    , mkPure_
+    -- * Monadic Signals
+    , mkGen
+    , mkGenN
+    , mkGen_
+
+    -- * Kleisli Signals
+    , mkKleisli_
+    , mkConstM  
+    )
     where
 
 import Control.Arrow
@@ -14,8 +40,6 @@ import Control.Monad
 import Control.Monad.IO.Class
 
 import FRP.Timeless.Signal
-
-
 
 -- | Make a pure stateful wire from given transition function
 mkPW :: (Monoid s) => (s -> a -> (b, Signal s m a b)) -> Signal s m a b
@@ -30,7 +54,8 @@ mkPWN f = mkPureN $ lstrict . first (Just) . f
 mkPW_ :: (a -> b) -> Signal s m a b
 mkPW_ = SArr . fmap
 
--- | Make a stateful wire from chained state transition function
+-- | Make a stateful wire from chained state transition
+-- function. Notice that the output will always be the new value
 mkSW_ :: b -> (b -> a -> b) -> Signal s m a b
 mkSW_ b0 f = mkPWN $ g b0
     where
@@ -76,7 +101,7 @@ mkPure_ f = go
       go = SPure $ \_ mx ->
            case mx of
              Just x -> lstrict (f x, go)
-                 -- ^ From (m (Maybe b)) to (m (Maybe b, Signal s m a b))
+                 -- From (m (Maybe b)) to (m (Maybe b, Signal s m a b))
              Nothing -> (Nothing, go)
 
 -- | Make a stateful signal from given (Monadic) transition function
@@ -108,7 +133,7 @@ mkGen_ f = go
              Just x -> 
                  let mmx' = f x in
                  liftM (lstrict . (, go)) mmx'
-                 -- ^ From (m (Maybe b)) to (m (Maybe b, Signal s m a b))
+                 -- From (m (Maybe b)) to (m (Maybe b, Signal s m a b))
              Nothing ->
                  return (Nothing, go)
 

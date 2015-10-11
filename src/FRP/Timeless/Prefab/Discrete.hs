@@ -14,7 +14,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 
 import FRP.Timeless.Signal
-import FRP.Timeless.Prefab.Factory
+import FRP.Timeless.Prefab.Primitive
 
 -- | Produces output for a several sample periods, then inhibits.
 --

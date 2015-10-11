@@ -5,11 +5,19 @@
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 module FRP.Timeless.Prefab 
-    ( module FRP.Timeless.Prefab.Factory      
+    (-- * Factories
+      module FRP.Timeless.Prefab.Primitive
+    -- * Signal Processing
+    , module FRP.Timeless.Prefab.Processing
+    -- * Discrete
     , module FRP.Timeless.Prefab.Discrete
+    -- * Utilities
+    , module FRP.Timeless.Prefab.Utils
     )
     where
 
 import FRP.Timeless.Prefab.Discrete
-import FRP.Timeless.Prefab.Factory
+import FRP.Timeless.Prefab.Primitive
+import FRP.Timeless.Prefab.Processing
+import FRP.Timeless.Prefab.Utils
 

@@ -55,6 +55,7 @@ library
                  , FRP.Timeless.Prefab
                  , FRP.Timeless.Prefab.Discrete
                  , FRP.Timeless.Prefab.Primitive
+                 , FRP.Timeless.Prefab.Processing
                  , FRP.Timeless.Prefab.Utils
   default-extensions:
         Arrows

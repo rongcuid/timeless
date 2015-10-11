@@ -6,7 +6,7 @@
 
 module FRP.Timeless.Prefab.Processing
     (
-      snapshot
+      sample
     )
     where
 
@@ -19,10 +19,10 @@ import Control.Monad.IO.Class
 import FRP.Timeless.Signal
 import FRP.Timeless.Prefab.Primitive
 
--- | Takes a snapshot of second input when the first input becomes
+-- | Takes a sample of second input when the first input becomes
 -- True. First snapshot taken at local time 0, i.e. on construction
-snapshot :: (Monad m) => Signal s m (Bool, a) a
-snapshot = mkPWN f
+sample :: (Monad m) => Signal s m (Bool, a) a
+sample = mkPWN f
     where
       -- | First snapshot taken on local time 0 (On construction)
       f (_, a) = (a, mkPWN $ f' a)

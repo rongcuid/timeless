@@ -5,34 +5,39 @@
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 module FRP.Timeless.Prefab 
-       (
-         -- * Factory
-         -- * Constructing Signals
-         mkEmpty
-       , mkId
-       , mkConst
-       , mkConstM
-       , mkPure
-       , mkPureN
-       , mkPure_
-       , mkGen
-       , mkGenN
-       , mkGen_
+    (-- * Factory
+     -- ** Constructing Signals
+     mkEmpty
+    , mkId
+    , mkConst
+    , mkConstM
+    , mkPure
+    , mkPureN
+    , mkPure_
+    , mkGen
+    , mkGenN
+    , mkGen_
+      
+    -- ** Pure Wires
+    , mkPW
+    , mkPWN
+    , mkPW_
+    , mkSW_
+    -- ** Special signals
+    , mkKleisli_
 
-         -- ** Pure Wires
-       , mkPW
-       , mkPWN
-       , mkPW_
-       , mkSW_
-         -- ** Special signals
-       , mkKleisli_
-         -- ** Filters
-       , mkFW_
-         -- * Prefab
-       , sDebug
-       , snapOnce
-       )
-       where
+    -- * Prefab
+    , sDebug
+    -- ** Continuous Time
+    , mkFW_
+      
+
+    -- ** Discrete Utilities
+    , occursFor
+    , snapOnce
+    , inhibitsAfter
+    )
+    where
 
 import Control.Arrow
 import FRP.Timeless.Signal
@@ -62,7 +67,7 @@ mkSW_ b0 f = mkPWN $ g b0
                (b1, mkSW_ b1 f)
 
 -- | Make a signal that inhibits forever
-mkEmpty :: (Monad m) => Signal s m a b
+mkEmpty :: Signal s m a b
 mkEmpty = SConst Nothing
 
 -- | The Identity Signal
@@ -70,7 +75,7 @@ mkId :: (Monad m) => Signal s m a a
 mkId = SId
 
 -- | Make a constant Signal
-mkConst :: (Monad m) => Maybe b -> Signal s m a b
+mkConst :: Maybe b -> Signal s m a b
 mkConst = SConst 
 
 -- | Make a pure stateful signal from given transition function
@@ -148,10 +153,37 @@ mkConstM b = mkKleisli_ $ \_ -> b
 mkFW_ :: (a -> Bool) -> Signal s m [a] [a]
 mkFW_ pred = mkPW_ $ filter pred
 
-snapOnce :: (Monad m) => Signal s m a a
-snapOnce = SGen $ f
-    where
-      f _ ma = return (ma, SConst ma)
+-- | Produces output for a several sample periods, then inhibits.
+--
+-- Typical usage:
+--
+-- > () `occursFor` 1 >>> <some IO actions> >>> snapOnce
+--
+-- The example above will perform the IO action once and then hold the
+-- result forever
+occursFor :: b -- ^ Constant Output
+          -> Int -- ^ Number of sample periods
+          -> Signal s m a b
+occursFor b n = mkPW_ (\_ -> b) >>> inhibitsAfter n
+
+-- | Takes the snapshot of the value when signal is activated,
+-- and then holds value forever
+--
+-- Typical usage:
+--
+-- > () `occursFor` 1 >>> <some IO actions> >>> snapOnce
+--
+-- The example above will perform the IO action once and then hold the
+-- result forever
+snapOnce :: Signal s m a a
+snapOnce = mkPureN $ \a -> (Just a, mkConst $ Just a)
+
+inhibitsAfter :: Int -> Signal s m a a
+inhibitsAfter n
+    | n == 0 = mkEmpty
+    | n > 0 = mkPureN $ \a -> (Just a, inhibitsAfter $ n-1)
+    | otherwise = error "[ERROR] inhibitsAfter: Nothing will inhibit in the past!"
+               
 
 -- | A signal wire for easy debugging inside arrow syntax
 sDebug :: (MonadIO m) => Signal s m String ()

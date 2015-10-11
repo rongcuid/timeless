@@ -47,3 +47,11 @@ inhibitsAfter n
     | n == 0 = mkEmpty
     | n > 0 = mkPureN $ \a -> (Just a, inhibitsAfter $ n-1)
     | otherwise = error "[ERROR] inhibitsAfter: Nothing will inhibit in the past!"
+
+-- | Runs a signal once and hold the result forever.
+--
+-- It is a combination of 'inhibitsAfter' and 'snapOnce'
+runAndHold :: (Monad m) =>
+              Signal s m a b
+           -> Signal s m a b
+runAndHold sig = inhibitsAfter 1 >>> sig >>> snapOnce

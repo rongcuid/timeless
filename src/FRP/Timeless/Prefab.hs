@@ -71,7 +71,7 @@ mkEmpty :: Signal s m a b
 mkEmpty = SConst Nothing
 
 -- | The Identity Signal
-mkId :: (Monad m) => Signal s m a a 
+mkId :: Signal s m a a 
 mkId = SId
 
 -- | Make a constant Signal
@@ -161,7 +161,7 @@ mkFW_ pred = mkPW_ $ filter pred
 --
 -- The example above will perform the IO action once and then hold the
 -- result forever
-occursFor :: b -- ^ Constant Output
+occursFor :: (Monad m) => b -- ^ Constant Output
           -> Int -- ^ Number of sample periods
           -> Signal s m a b
 occursFor b n = mkPW_ (\_ -> b) >>> inhibitsAfter n

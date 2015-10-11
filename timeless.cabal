@@ -53,6 +53,9 @@ library
                  , FRP.Timeless.Session
                  , FRP.Timeless.Run
                  , FRP.Timeless.Prefab
+  other-modules:
+                FRP.Timeless.Prefab.Discrete
+              , FRP.Timeless.Prefab.Factory
   default-extensions:
         Arrows
         DeriveDataTypeable

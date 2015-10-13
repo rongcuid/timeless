@@ -19,11 +19,9 @@ module FRP.Timeless.Prefab.Primitive
     , mkPW_
     , mkSW_
       -- ** Signals
-    , mkPure
     , mkPureN
     , mkPure_
     -- * Monadic Signals
-    , mkGen
     , mkGenN
     , mkGen_
 

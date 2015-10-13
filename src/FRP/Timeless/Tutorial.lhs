@@ -50,11 +50,11 @@ Usually, `m` will be `IO`. However, I recommend to only put `IO` explicitly in t
 
 The goal of this application is to demonstrate a simple console interactive program. The program reads user's name from standard input. As the user type, the name is updated inside a greeting sentence, for example:
 
-    Hello, Rongcui Dong!
+    Hello, Rongcui Dong! Greetings!
 
-Then, when the user presses return, another greeting replaces the previous one:
+Then, when the user presses return, the second greeting also gets updated
 
-    Greetings, Rongcui Dong!
+    Hello, Rongcui Dong! Greetings, Rongcui Dong!
 
 If the user types "quit" or "q", case non-sensitive, and then presses return, the program quits. The process of implementation is broken into several parts.
 
@@ -269,3 +269,22 @@ Again, since `hello` is pure, we don't specify the `IO` monad here. Now, connect
 >   returnA -< ()
 
 Try it!
+
+
+\subsection{Greetings!}
+
+In this section, we are going to make the program more fancy. When the user types anything, the screen prints "Hello, <name>! Greetings, <name2>!". However, <name2> is updated only when the user hits return. Test the results by running `runGrettings`
+
+> runGreetings = initConsole >> runBox clockSession_ sGreetingsBox
+
+First, make the greeting signal:
+
+> sGreeting :: (Monad m) => Signal s m String String
+> sGreeting = arr $ ("Greetings, "++) . (++"!")
+
+Then, we need a signal to detect a return:
+
+> sIsReturn :: (Monad m) => Signal s m Char Bool
+> sIsReturn = (arr $ (=='\n')) >>> rising False
+
+Here, the `rising` filter is used to detect a transition from `False` to `True`, with the initial value as `False`. This filter will create one single impulse of `True` when it detects a rising edge.

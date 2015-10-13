@@ -33,3 +33,4 @@ sample = mkPWN f
 -- | Alias for 'sample'. Snapshot sounds more discrete
 snapshot :: (Monad m) => Signal s m (Bool, a) a
 snapshot = sample
+

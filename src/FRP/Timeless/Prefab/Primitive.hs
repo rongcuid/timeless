@@ -29,6 +29,7 @@ module FRP.Timeless.Prefab.Primitive
 
     -- * Kleisli Signals
     , mkKleisli_
+    , mkSK_
     , mkConstM
     , mkActM
     )
@@ -141,6 +142,14 @@ mkGen_ f = go
 -- | Make a stateless signal from Kleisli function
 mkKleisli_ :: (Monad m) => (a -> m b) -> Signal s m a b
 mkKleisli_ f =  mkGen_ $ \x -> fmap Just (f x)
+
+-- | Make a stateful signal from Kleisli function
+mkSK_ :: (Monad m) => b -> (b -> a -> m b) -> Signal s m a b
+mkSK_ b f =  mkGenN $ f'
+    where
+      f' a = do
+        b' <- f b a
+        return (Just b', mkSK_ b' f)
 
 -- | Make a monadic constant wire
 mkConstM :: (Monad m) => m b -> Signal s m a b

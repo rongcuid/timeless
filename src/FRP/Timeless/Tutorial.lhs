@@ -1,8 +1,8 @@
--- |
--- Module:     FRP.Timeless.Tutorial
--- Copyright:  (c) 2015 Rongcui Dong
--- License:    BSD3
--- Maintainer: Rongcui Dong <karl_1702@188.com>
+> -- |
+> -- Module:     FRP.Timeless.Tutorial
+> -- Copyright:  (c) 2015 Rongcui Dong
+> -- License:    BSD3
+> -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 > {-# LANGUAGE Arrows #-}
 > module FRP.Timeless.Tutorial where

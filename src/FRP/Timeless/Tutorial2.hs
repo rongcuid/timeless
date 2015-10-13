@@ -46,14 +46,19 @@ import Data.Char
 --
 -- To make a nice output for the game, let's consider creating a
 -- bounding box that is 60x30 character size, giving a board size of
--- 58x28, and changes color on request. Let's make such output signal:
---
--- > sBoundingBox = sAsciiBox 60 30
+-- 58x28, and changes color on request. We won't make that a separate
+-- signal since semantically, we cannot guarentee the evaluation order
+-- of different 'Signal's. We will need a unified 'sOutput', which
+-- will be built along this tutorial.
 --
 -- Then, we are preparing to draw the player spaceship, which is just
 -- a charcter @^@ on the bottom line. Making use of the 'drawChar'
 -- function provided, we can easily create a signal 'drawPlayer' (read
--- the source), which takes the column number and draws the player.
+-- the source), which takes the column number and draws the
+-- player. However, if we just implement by clearing a line and
+-- drawing a new character, serious flicker will appear. Therefore, we
+-- implement a stateful version that keeps track of the previous
+-- position.
 --
 -- Again, testing with @timeless@ is easy: Just connect a simple
 -- box. Here, the test function is `testIO`, where almost everything
@@ -63,12 +68,17 @@ import Data.Char
 
 
 sInput = sInputNonBlocking
-sBoundingBox = sAsciiFillColorBox 60 30
 
--- | Draws a vivid white @^@ on the bottom line
-drawPlayer :: Int -- ^ The row number of bottom line
-           -> Signal s IO Int ()
-drawPlayer r = mkKleisli_ $ \c -> drawChar '^' r c Vivid White
+-- | Draws a vivid white @^@ on the bottom line, and deals with flickering
+drawPlayer :: Int -> Int -> IO Int
+drawPlayer c c'
+    | c /= c' = do
+  -- v Clear line
+  clearLineRange 28 1 59
+  -- V Draw character
+  drawChar '^' 28 c' Vivid White
+  return c'
+    | otherwise = return c
 
 testIO = initConsole defaultInitConfig >> runBox clockSession_ b
     where
@@ -81,9 +91,8 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
                | otherwise = x
       b = proc _ -> do
         mc <- sInput -< ()
-        sBoundingBox -< (Vivid, Green)
         x <- (arr fBound) <<< (mkSW_ 40 fMove) -< mc
-        drawPlayer 29 -< x
+        mkSK_ 30 drawPlayer -< x
         returnA -< ()
 
 -- $GameState
@@ -107,7 +116,8 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
 --
 -- > Signal s m (Maybe Char) Move
 --
--- We will call this function 'toMove'.
+-- We will call this function 'toMove'. Again, try to construct a box
+-- for testing: `testPlayer`
 
 data Move = MLeft | MRight | MStay
 
@@ -124,11 +134,16 @@ sPlayerX :: (Monad m) => Signal s m Move Int
 sPlayerX = mkSW_ 30 updatePosX -- 30 is the middle
 
 -- | Convert a keypress to 'Move'
-toMove :: (Monad m) => Signal s m (Maybe Char) Move
-toMove = arr f
+toMove Nothing = MStay
+toMove (Just c)
+    | toLower c == 'a' = MLeft
+    | toLower c == 'd' = MRight
+    | otherwise = MStay
+
+testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
     where
-      f Nothing = MStay
-      f (Just c)
-        | toLower c == 'a' = MLeft
-        | toLower c == 'd' = MRight
-        | otherwise = MStay
+      b = proc _ -> do
+        mc <- sInput -< ()
+        mv <- arr toMove -< mc
+        x <- sPlayerX -< mv
+        returnA -< ()

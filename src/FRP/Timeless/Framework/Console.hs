@@ -30,6 +30,7 @@ initConsole :: InitConfig -> IO ()
 initConsole conf = do
   let hIn = initInHandle conf
       hOut = initOutHandle conf
+  clearScreen
   hSetEcho hIn False
   hSetBuffering hIn $ initInBuffering conf
   hSetBuffering hOut $ initOutBuffering conf
@@ -39,14 +40,14 @@ initConsole conf = do
 
 
 -- | Draw a filled ascii box with specified color and size
-asciiFillBox :: Int -> Int -> ColorIntensity -> Color -> IO ()
-asciiFillBox w h i c = do
+asciiBox :: Int -> Int -> ColorIntensity -> Color -> IO ()
+asciiBox w h i c = do
   let tbLine = "+" ++ (replicate (w-2) '-') ++ "+"
       mLine = "|" ++ (replicate (w-2) ' ') ++ "|"
   setCursorPosition 0 0
   setSGR [SetColor Foreground i c]
   putStrLn tbLine
-  replicateM_ (h-2) $ putStrLn mLine
+  replicateM_ (h-1) $ putStrLn mLine
   putStrLn tbLine
   setSGR [Reset]
 
@@ -58,9 +59,16 @@ drawChar c rol col i color = do
   putChar c
   setSGR [Reset]
 
--- | The signal to draw a filled ascii box with specified color
-sAsciiFillColorBox :: Int -> Int -> Signal s IO (ColorIntensity, Color) ()
-sAsciiFillColorBox w h = mkKleisli_ $ \(i,c) -> asciiFillBox w h i c
+-- | Clears a certain column range on a certain row
+clearLineRange :: Int -- ^ Row
+               -> Int -- ^ Beginning Col
+               -> Int -- ^ End Col, non inclusive
+               -> IO ()
+clearLineRange r c c' = do
+  setCursorPosition r c
+  let l = c' - c
+      cover = replicate l ' '
+  putStr cover
 
 -- | Gets character input from console without blocking
 sInputNonBlocking :: Signal s IO () (Maybe Char)
@@ -72,3 +80,4 @@ sInputNonBlocking = mkActM f
       case b of
         True -> Just <$> getChar
         False -> return Nothing
+

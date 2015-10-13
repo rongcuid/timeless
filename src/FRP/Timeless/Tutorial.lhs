@@ -4,8 +4,10 @@
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
-> {-# LAWNGUAGE Arrows #-}
+> {-# LANGUAGE Arrows #-}
 > module FRP.Timeless.Tutorial where
+>
+> import System.IO
 
 \section{Introduction}
 
@@ -92,18 +94,14 @@ First, we prepare the input function. To make things simpler for now, let's cons
 
 Very simple. However, this is an `IO` action, not a `Signal`. Therefore, we make it a `Signal`:
 
-> sInputBlocking :: Signal s IO a Char
-> sInputBlocking = mkActM inputBlocking
+> sInput :: Signal s IO () Char
+> sInput = mkActM inputBlocking
 
 `mkActM` lifts a monadic action into a `Signal`. Although GHC's type inference should perform well in determining the type of the signal, but it is much easier to explicitly write it out so that when you make a mistake, the debug message gets much more readable. Now I will explain the type of this signal.
 
 < Signal s IO a Char
 
-`s` is the implicit `Session` type, which can be thought of as "time" (and it is "timeless"!). `IO` is explicitly written out because `inputBlocking` is an `IO` action. `a` here is any type, and `Char` is the output type. To start out, imagine a function like this:
-
-< f :: a -> IO Char
-
-The only thing this function do is to get a `Char` from somewhere else (`RealWorld`), because there is no way we can get a `Char` from an `a` of unknown type. Therefore, `a` as an input is completely ignored. (Actually, `mkActM` is a synonym of `mkConstM`, implying that is behaves somewhat like a constant)
+`s` is the implicit `Session` type, which can be thought of as "time" (and it is "timeless"!). `IO` is explicitly written out because `inputBlocking` is an `IO` action. `()` means that this signal should not take any inputs, and `Char` is the output type. To start out, imagine a function like this:
 
 Next, we need something for output:
 
@@ -112,4 +110,69 @@ Next, we need something for output:
 
 Similarly, we lift it into a signal:
 
+> sOutput :: Signal s IO Char ()
+> sOutput = mkKleisli_ output
 
+The `output` function has type `Char -> IO ()`, or `a -> m b`, which is a Kleisli function. `mkKleisli_` lifts a Kleisli function into a `Signal`. Now `sOutput` will magically print characters on screen when input is supplied!
+
+Now, we have the input and output signal, and we are ready to create the black box!
+
+> sEchoBox :: Signal s IO () ()
+> sEchoBox = sInput >>> sOutput
+
+Since it is just an "echo box", we simply direct the input to output. `(>>>)` is a function in `Control.Arrow`:
+
+< (>>>) :: Category cat => cat a b -> cat b c -> cat a c
+
+It may look scary because of the `Category` thing, but `Category` is basically function. If you look carefully, you will notice:
+
+< (.) :: Category cat => cat b c -> cat a b -> cat a c
+
+`(>>>)` is just a flipped `(.)`! So instead of writing `sOutput . sInput`, the syntax looks more like chaining operations. Later we will also introduce the arrow syntax of Haskell, which makes complex logic much easier to compose.
+
+If everything is typed correctly, try `runEcho`! Everything you type should be echoed. Of course, backspace will not work.
+
+
+\subsection{Non Blocking Input}
+
+Although the program above works, it will be nice if we don't block on input. Here we are using single thread (honestly, I haven't done any concurrency in Haskell yet, so I do not know whether `timeless` will work in concurrent programs), waits for input for 17ms, giving 60 samples per second. (I use the word /sample/ because `timeless` works in continuous time semantics).
+
+To see result of this section, run `runEcho2`:
+
+> runEcho2 :: IO ()
+> runEcho2 = do
+>   initConsole
+>   runBox clockSession_ sEchoBox2
+
+
+First, we write a monadic action as in normal Haskell program:
+
+> inputNonBlocking :: IO (Maybe Char)
+> inputNonBlocking = do
+>   b <- hWaitForInput stdin 17
+>   case b of
+>     True -> fmap Just getChar
+>     False -> return Nothing
+
+The function is self explanatory. If input is found, get it. Otherwise, return `Nothing`. Since we have `IO (Maybe Char)` this time, we need another output function:
+
+> outputMay :: Maybe Char -> IO ()
+> outputMay = mapM_ putChar
+
+This function is also self explanatory. If you can't read it, try to read some more basic Haskell tutorials or books first. Then, we construct the signals and the box as before:
+
+> sInput' :: Signal s IO () (Maybe Char)
+> sInput' = mkActM inputNonBlocking
+>
+> sOutput' :: Signal s IO (Maybe Char) ()
+> sOutput' = mkKleisli_ outputMay
+>
+> sEchoBox2 :: Signal s IO () ()
+> sEchoBox2 = sInput' >>> sOutput'
+
+Now, run `runEcho2` and see what happens. It should look just like before. However, when other parts are included, this version enables other computations to be made when there is no input. The following sections will be built up on the non-blocking version of I/O.
+
+
+\subsection{Remember the Name}
+
+In this section, we will deal with stateful signals. With these additions, the backspace character will work.

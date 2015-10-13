@@ -55,3 +55,30 @@ runAndHold :: (Monad m) =>
               Signal s m a b
            -> Signal s m a b
 runAndHold sig = inhibitsAfter 1 >>> sig >>> snapOnce
+
+-- | Rising edge filter. Creates an impulse at rising edge
+rising :: (Monad m) =>
+          Bool -- ^ Initial value
+       -> Signal s m Bool Bool
+rising b0 = mkPWN $ f b0
+    where
+      f False b = (b, rising b)
+      f True b = (False, rising b)
+
+-- | Falling edge filter. Creates an impulse at falling edge
+falling :: (Monad m) =>
+          Bool -- ^ Initial value
+       -> Signal s m Bool Bool
+falling b0 = mkPWN $ f b0
+    where
+      f False b = (False, rising b)
+      f True b = (not b, rising b)
+
+-- | Edge filter. Creates an impulse at edge
+edge :: (Monad m) =>
+        Bool -- ^ Initial value
+     -> Signal s m Bool Bool
+edge b0 = proc b -> do
+  b'1 <- rising b0 -< b
+  b'2 <- falling b0 -< b
+  returnA -< b'1 || b'2

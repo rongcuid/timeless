@@ -1,5 +1,5 @@
 -- |
--- Module:     Control.Wire.Run
+-- Module:     FRP.Timeless.Run
 -- Copyright:  Original work (c) 2013 Ertugrul Soeylemez
 -- Copyright:  Derived work (c) 2015 Rongcui Dong
 -- License:    BSD3

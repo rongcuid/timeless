@@ -29,7 +29,8 @@ module FRP.Timeless.Prefab.Primitive
 
     -- * Kleisli Signals
     , mkKleisli_
-    , mkConstM  
+    , mkConstM
+    , mkActM
     )
     where
 
@@ -145,3 +146,6 @@ mkKleisli_ f =  mkGen_ $ \x -> fmap Just (f x)
 mkConstM :: (Monad m) => m b -> Signal s m a b
 mkConstM b = mkKleisli_ $ \_ -> b
 
+-- | Make a monadic action wire, alias for mkConstM
+mkActM :: (Monad m) => m b -> Signal s m a b
+mkActM = mkConstM

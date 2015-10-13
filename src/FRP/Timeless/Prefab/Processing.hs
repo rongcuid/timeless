@@ -29,3 +29,7 @@ sample = mkPWN f
       -- | Later snapshots taken when predicate becomes true
       f' a (False, _) = (a, mkPWN $ f' a)
       f' a (True, a') = (a', mkPWN $ f' a')
+
+-- | Alias for 'sample'. Snapshot sounds more discrete
+snapshot :: (Monad m) => Signal s m (Bool, a) a
+snapshot = sample

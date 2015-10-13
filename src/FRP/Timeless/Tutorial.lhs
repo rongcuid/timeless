@@ -8,10 +8,13 @@
 > module FRP.Timeless.Tutorial where
 >
 > import System.IO
+> import Data.Char (toLower)
 
 \section{Introduction}
 
 This module is a tutorial of `timeless` written in Literate Haskell. To run this tutorial, run ghci, import this module, and run 'runTurorial'.
+
+In very short terms, `timeless` is an Arrow based Functional Reactive Programming library which operates in continuous time semantics. You will get this as tutorial goes.
 
 This tutorial steps through the core of `timeless`, and builds a simple console interactive program which makes use of many aspects of 'timeless'
 
@@ -58,6 +61,7 @@ Then, when the user presses return, the second greeting also gets updated
 
 If the user types "quit" or "q", case non-sensitive, and then presses return, the program quits. The process of implementation is broken into several parts.
 
+To test final results now, run `runTutorial` in GHCi
 
 \subsection{Echo Input}
 
@@ -315,4 +319,36 @@ Now, simply make a greetings box:
 
 \subsection{Quitting}
 
-Finally, 
+Finally, we need to give the program ability to quit. Since this is the last part, run `runTutorial`.
+
+> runTutorial = initConsole >> runBox clockSession_ sTutorialBox
+
+This time, we need something that inhibits. Any factory functions that are provided that takes a function that returns `Maybe` creates signals that can inhibit themselves. For example:
+
+< mkPure_ :: (a -> (Maybe b)) -> Signal s m a b
+
+If the function returns `Nothing`, the signal inhibits. Therefore, the quit signal is simple:
+
+> sQuit :: (Monad m) => Signal s m String ()
+> sQuit = mkPure_ f
+>     where
+>       f s | (toLower <$> s) == "q" || (toLower <$> s) == "quit" = Nothing
+>           | otherwise = Just ()
+
+Get this in box:
+
+> sTutorialBox :: Signal s IO () ()
+> sTutorialBox = proc _ -> do
+>   mc <- sInput' -< ()
+>   name <- sReverse <<< sName -< mc
+>   helloName <- sHello -< name
+>   ret <- rising False <<< sIsReturn -< mc
+>   snapName <- sName2 -< (ret, name)
+>   greetingName <- sGreeting -< snapName
+>   sLineOut -< helloName ++ " " ++ greetingName
+>   returnA <<< sQuit -< snapName
+
+
+DONE!!!!!!! You have followed this super long tutorial and made your first complete interactive program using `timeless`!!!
+
+Timeless will continue to be developed timelessly. Now I am working on THE project: `timeless-RPG`, which is more complicated in orders of magnitude. However, even with such complex libraries, I will use the very same factories and combinators. If you actually type out the code, you may notice that you almost never need to debug the program unless you typed something wrong or have incorrect understanding of the data flow. THAT is the power of Functional Reactive Programming! I hope this is a good introduction to `timeless`, and in general, FRP!

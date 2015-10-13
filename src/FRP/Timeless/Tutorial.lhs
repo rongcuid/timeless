@@ -277,14 +277,42 @@ In this section, we are going to make the program more fancy. When the user type
 
 > runGreetings = initConsole >> runBox clockSession_ sGreetingsBox
 
-First, make the greeting signal:
+First, we need a signal to detect a return:
+
+> sIsReturn :: (Monad m) => Signal s m (Maybe Char) Bool
+> sIsReturn = (arr $ f)
+>     where
+>       f (Just c) = c == '\n'
+>       f Nothing = False
+
+We will use the `rising` filter to detect a transition from `False` to `True`, with the initial value as `False`. This filter will create one single impulse of `True` when it detects a rising edge.
+
+What the event "hitting enter" does here is to take a sample of the current name, and store it somewhere. Therefore, we need a `sample` signal:
+
+> sName2 :: (Monad m) => Signal s m (Bool, String) String
+> sName2 = sample
+
+Then, we will need a signal to render the second greeting:
 
 > sGreeting :: (Monad m) => Signal s m String String
-> sGreeting = arr $ ("Greetings, "++) . (++"!")
+> sGreeting = arr f
+>     where
+>       f "" = "Greetings!"
+>       f s = "Greetings, " ++ s ++ "!"
 
-Then, we need a signal to detect a return:
+Now, simply make a greetings box:
 
-> sIsReturn :: (Monad m) => Signal s m Char Bool
-> sIsReturn = (arr $ (=='\n')) >>> rising False
+> sGreetingsBox :: Signal s IO () ()
+> sGreetingsBox = proc _ -> do
+>   mc <- sInput' -< ()
+>   name <- sReverse <<< sName -< mc
+>   helloName <- sHello -< name
+>   ret <- rising False <<< sIsReturn -< mc
+>   greetingName <- sGreeting <<< sName2 -< (ret, name)
+>   sLineOut -< helloName ++ " " ++ greetingName
+>   returnA -< ()
 
-Here, the `rising` filter is used to detect a transition from `False` to `True`, with the initial value as `False`. This filter will create one single impulse of `True` when it detects a rising edge.
+
+\subsection{Quitting}
+
+Finally, 

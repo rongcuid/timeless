@@ -175,4 +175,29 @@ Now, run `runEcho2` and see what happens. It should look just like before. Howev
 
 \subsection{Remember the Name}
 
-In this section, we will deal with stateful signals. With these additions, the backspace character will work.
+In this section, we will deal with stateful signals. This time, the backspace character is correctly handled.
+
+First, let's look at what a /name/ is made of: a `String`, or `[Char]`. To append a string to an existing name, we use `(++)`:
+
+< (++) :: [a] -> [a] -> [a]
+
+Generalizing a bit, it has type `b -> a -> b`, where `b` is the state of a function. Multiple of these functions can be chained together to perform a sequence of stateful computation. Also, a /name/ has the initial value of an empty string, giving the starting point of the computations. Therefore, we make a function to update the name. Note that it is a bit different from `(++)` to incorporate with our process better:
+
+> updateName :: String -> Char -> String
+> updateName "" '\b' = ""
+> updateName (c:cs) '\b' = cs
+> updateName cs c' = c':cs
+
+Note that the name is actually stored in reverse so that the code looks cleaner. Whenever a backspace character ('\b') is detected, the last character is deleted. Then, we make it a stateful /wire/:
+
+> sName :: (Monad m) => Signal s m Char String
+> sName = mkSW_ "" updateName
+
+This signal is called a /wire/ because it never inhibits by itself. However, it can inhibited by its input signal. In other word, a /wire/ is passive. `mkSW_` (read it as "make stateful wire") is a factory function to create a stateful signal from a stateful computation of type `b -> a -> b`. Notice that the `IO` monad is no longer specified in its type since its underlyling computation does not involve `IO`.
+
+Then, to display the name properly, we need to reverse it:
+
+> sReverse :: (Monad m) => Signal s m String String
+> sReverse = mkPW_ reverse
+
+`mkPW_` ("make pure wire") creates a pure, stateless, wire, from a function. Note that `arr` also works for this purpose.

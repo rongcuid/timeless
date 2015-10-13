@@ -21,6 +21,7 @@ This tutorial steps through the core of `timeless`, and builds a simple console 
 First, to use anything from `timeless`, import the following module(s):
 
 > import FRP.Timeless
+> import Prelude hiding ((.), id) -- I don't see a way to get rid of this yet
 
 If you don't want to look at basic details, but rather like to go straight for the application, skip this section.
 
@@ -189,11 +190,17 @@ Generalizing a bit, it has type `b -> a -> b`, where `b` is the state of a funct
 
 > updateName :: String -> Maybe Char -> String
 > updateName s Nothing = s
-> updateName "" (Just '\b') = ""
-> updateName (c:cs) (Just '\b') = cs
-> updateName (c:cs) (Just '\DEL') = cs
-> updateName cs (Just '\n') = cs
-> updateName cs (Just c') = c':cs
+> updateName s (Just c) = f s c
+>     where
+>       isDel c = (c == '\b') || (c == '\DEL')
+>       f s '\n' = s
+>       f "" c'
+>           | isDel c' = ""
+>           | otherwise = c':""
+>       f s@(c:cs) c'
+>           | isDel c' = cs
+>           | otherwise = c':s
+
 
 Note that the name is actually stored in reverse so that the code looks cleaner. Whenever a backspace character ('\b') is detected, the last character is deleted. Then, we make it a stateful /wire/:
 
@@ -219,7 +226,7 @@ Now, make an output signal that prints string, always on the same line:
 >         putStr $ '\r':s
 >         return $ length s
 
-To actually make backspace work, the entire line is overwritten by white space. Since we need to keep track of the length of previous string to be covered by space, we need a stateful monadic function of type `b -> a -> m b`, in this case, `Int -> String -> IO Int`. Just like `mkSW_`, we use `mkSK_` to construct such a stateful signal(wire). We also want the output to be `()`, so we chain to a constant monadic signal. Remember that `mkConstM` and `mkActM` are just synonyms. The different names just make it easier to read.
+To actually make backspace work, the entire line is overwritten by white space. Since we need to keep track of the length of previous string to be covered by space, we need a stateful monadic function of type `b -> a -> m b`. In this case, using string length as state, we get type `Int -> String -> IO Int`. Just like `mkSW_`, we use `mkSK_` to construct such a stateful signal(wire). We also want the output to be `()`, so we chain to a constant monadic signal. Remember that `mkConstM` and `mkActM` are just synonyms. The different names just make it easier to read.
 
 Finally, construct the box. This time we will use the arrow syntax:
 
@@ -233,3 +240,32 @@ Finally, construct the box. This time we will use the arrow syntax:
 `proc` keyword is like lambda for arrows. It takes and only takes one input, in this case, `()`. Next, in the arrow `do` notation, the input values are to the right of `-<`, while the arrows are on the left. `<-` extracts the output from an arrow. Notice that only arrows can go between `<-` and `-<` (which looks like an arrow), and the only way to feed value into arrows is to use the `-<` operator. Finally, we return `()` by feeding it into the special `returnA` arrow.
 
 Try to run it by executing `runGetName`.
+
+
+\subsection{Hello!}
+
+This time, we are going to put your name inside the greeting! Test the result by running `runHello`
+
+> runHello = initConsole >> runBox clockSession_ sHelloBox
+
+Previously, everything seems to involve a lot of work. But not this time! The power of FRP now starts to shine!
+
+We need a function to enclose the name in a greeting:
+
+> hello :: String -> String
+> hello = ("Hello, "++) . (++"!")
+>
+> sHello :: (Monad m) => Signal s m String String
+> sHello = arr hello
+
+Again, since `hello` is pure, we don't specify the `IO` monad here. Now, connect the box like this:
+
+> sHelloBox :: Signal s IO () ()
+> sHelloBox = proc _ -> do
+>   c <- sInput' -< ()
+>   name <- sReverse <<< sName -< c
+>   helloName <- sHello -< name
+>   sLineOut -< helloName
+>   returnA -< ()
+
+Try it!

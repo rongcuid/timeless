@@ -1,5 +1,5 @@
 > -- | Sorry, I thought haddock will process LHS automatically, but
-  -- apparently it does not
+> -- apparently it does not
 > --
 > -- Module:     FRP.Timeless.Tutorial
 > -- Copyright:  (c) 2015 Rongcui Dong
@@ -105,7 +105,7 @@ factory functions in `FRP.Timeless.Prefab` (automatically imported).
 To make sure no garbage is displayed on console, and to give
 opportunity for immediate response, we turn off buffering and echo:
 
-> -- * Read the Source for This Tutorial! 
+> -- * Read the Source for This Tutorial!
 > initConsole :: IO ()
 > initConsole = do
 >   hSetEcho stdin False

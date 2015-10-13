@@ -177,20 +177,27 @@ Now, run `runEcho2` and see what happens. It should look just like before. Howev
 
 In this section, we will deal with stateful signals. This time, the backspace character is correctly handled.
 
+To try the results, run `runGetName`.
+
+> runGetName = initConsole >> runBox clockSession_ sNameBox
+
 First, let's look at what a /name/ is made of: a `String`, or `[Char]`. To append a string to an existing name, we use `(++)`:
 
 < (++) :: [a] -> [a] -> [a]
 
 Generalizing a bit, it has type `b -> a -> b`, where `b` is the state of a function. Multiple of these functions can be chained together to perform a sequence of stateful computation. Also, a /name/ has the initial value of an empty string, giving the starting point of the computations. Therefore, we make a function to update the name. Note that it is a bit different from `(++)` to incorporate with our process better:
 
-> updateName :: String -> Char -> String
-> updateName "" '\b' = ""
-> updateName (c:cs) '\b' = cs
-> updateName cs c' = c':cs
+> updateName :: String -> Maybe Char -> String
+> updateName s Nothing = s
+> updateName "" (Just '\b') = ""
+> updateName (c:cs) (Just '\b') = cs
+> updateName (c:cs) (Just '\DEL') = cs
+> updateName cs (Just '\n') = cs
+> updateName cs (Just c') = c':cs
 
 Note that the name is actually stored in reverse so that the code looks cleaner. Whenever a backspace character ('\b') is detected, the last character is deleted. Then, we make it a stateful /wire/:
 
-> sName :: (Monad m) => Signal s m Char String
+> sName :: (Monad m) => Signal s m (Maybe Char) String
 > sName = mkSW_ "" updateName
 
 This signal is called a /wire/ because it never inhibits by itself. However, it can inhibited by its input signal. In other word, a /wire/ is passive. `mkSW_` (read it as "make stateful wire") is a factory function to create a stateful signal from a stateful computation of type `b -> a -> b`. Notice that the `IO` monad is no longer specified in its type since its underlyling computation does not involve `IO`.
@@ -201,3 +208,28 @@ Then, to display the name properly, we need to reverse it:
 > sReverse = mkPW_ reverse
 
 `mkPW_` ("make pure wire") creates a pure, stateless, wire, from a function. Note that `arr` also works for this purpose.
+
+Now, make an output signal that prints string, always on the same line:
+
+> sLineOut :: Signal s IO String ()
+> sLineOut = (mkSK_ 0 $ f) >>> mkConstM (return ())
+>     where
+>       f n s = do
+>         putStr $ '\r':(replicate n ' ')
+>         putStr $ '\r':s
+>         return $ length s
+
+To actually make backspace work, the entire line is overwritten by white space. Since we need to keep track of the length of previous string to be covered by space, we need a stateful monadic function of type `b -> a -> m b`, in this case, `Int -> String -> IO Int`. Just like `mkSW_`, we use `mkSK_` to construct such a stateful signal(wire). We also want the output to be `()`, so we chain to a constant monadic signal. Remember that `mkConstM` and `mkActM` are just synonyms. The different names just make it easier to read.
+
+Finally, construct the box. This time we will use the arrow syntax:
+
+> sNameBox :: Signal s IO () ()
+> sNameBox = proc _ -> do
+>   c <- sInput' -< ()
+>   name <- sReverse <<< sName -< c
+>   sLineOut -< name
+>   returnA -< ()
+
+`proc` keyword is like lambda for arrows. It takes and only takes one input, in this case, `()`. Next, in the arrow `do` notation, the input values are to the right of `-<`, while the arrows are on the left. `<-` extracts the output from an arrow. Notice that only arrows can go between `<-` and `-<` (which looks like an arrow), and the only way to feed value into arrows is to use the `-<` operator. Finally, we return `()` by feeding it into the special `returnA` arrow.
+
+Try to run it by executing `runGetName`.

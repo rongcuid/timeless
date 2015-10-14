@@ -35,6 +35,7 @@ import Data.Char
 -- "FRP.Timeless.Tutorial". Sorry that I did not expect Haddock doesn't work as
 -- I expected with Literate Haskell, so please read the source of that instead.
 
+
 -- $IO
 --
 -- First, since this is a game, we cannot block IO. Therefore, we use
@@ -51,19 +52,23 @@ import Data.Char
 -- of different 'Signal's. We will need a unified 'sOutput', which
 -- will be built along this tutorial.
 --
--- Then, we are preparing to draw the player spaceship, which is just
--- a charcter @^@ on the bottom line. Making use of the 'drawChar'
--- function provided, we can easily create a signal 'drawPlayer' (read
--- the source), which takes the column number and draws the
--- player. However, if we just implement by clearing a line and
--- drawing a new character, serious flicker will appear. Therefore, we
--- implement a stateful version that keeps track of the previous
--- position.
+-- We will implement a function to draw the player spaceship, which is
+-- just a charcter @^@ on the bottom line. Making use of the
+-- 'drawChar' function provided, we can easily create a signal
+-- 'drawPlayer' (read the source), which takes the column number and
+-- draws the player. However, if we just implement by clearing a line
+-- and drawing a new character, serious flicker will
+-- appear. Therefore, we implement a stateful version that keeps track
+-- of the previous position. This function can easily be composed into
+-- a larger stateful render action. Notice that the initial value of
+-- 'drawChar' is set to (-1) since it is an impossible value for a
+-- normal update, so the console is rendered correctly on the first
+-- "frame"
 --
 -- Again, testing with @timeless@ is easy: Just connect a simple
 -- box. Here, the test function is `testIO`, where almost everything
 -- is hard coded. But for a testing, it is fine. Be careful that if
--- you interrupt the program, it is likely to color your console.
+-- you interrupt the program, it is likely to color stain your console.
 
 
 
@@ -91,8 +96,8 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
                | otherwise = x
       b = proc _ -> do
         mc <- sInput -< ()
-        x <- (arr fBound) <<< (mkSW_ 40 fMove) -< mc
-        mkSK_ 30 drawPlayer -< x
+        x <- (arr fBound) <<< (mkSW_ 30 fMove) -< mc
+        mkSK_ (-1) drawPlayer -< x
         returnA -< ()
 
 -- $GameState
@@ -117,7 +122,7 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
 -- > Signal s m (Maybe Char) Move
 --
 -- We will call this function 'toMove'. Again, try to construct a box
--- for testing: `testPlayer`
+-- for testing: `testPlayer`. 
 
 data Move = MLeft | MRight | MStay
 
@@ -146,4 +151,5 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
         mc <- sInput -< ()
         mv <- arr toMove -< mc
         x <- sPlayerX -< mv
+        mkSK_ (-1) drawPlayer -< x
         returnA -< ()

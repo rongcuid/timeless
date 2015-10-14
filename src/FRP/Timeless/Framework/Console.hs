@@ -39,19 +39,22 @@ initConsole conf = do
       hHideCursor hOut
 
 
--- | Draw a filled ascii box with specified color and size
+-- | Draw a filled ascii box with specified color and size. It will
+-- destroy SGR color state, be careful
 asciiBox :: Int -> Int -> ColorIntensity -> Color -> IO ()
 asciiBox w h i c = do
   let tbLine = "+" ++ (replicate (w-2) '-') ++ "+"
-      mLine = "|" ++ (replicate (w-2) ' ') ++ "|"
   setCursorPosition 0 0
   setSGR [SetColor Foreground i c]
   putStrLn tbLine
-  replicateM_ (h-1) $ putStrLn mLine
+  mapM_ (\rol -> drawChar '|' rol 0 i c >> drawChar '|' rol (w-1) i c) [1..h-2]
+  setSGR [SetColor Foreground i c]
+  setCursorPosition (h-1) 0
   putStrLn tbLine
   setSGR [Reset]
 
--- | Draw a character at a specific position
+-- | Draw a character at a specific position. It will destroy SGR
+-- color state
 drawChar :: Char -> Int -> Int -> ColorIntensity -> Color -> IO ()
 drawChar c rol col i color = do
   setCursorPosition rol col

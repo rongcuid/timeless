@@ -198,7 +198,7 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 -- enemies can only occupy integer positions, internally we can keep
 -- fractional positions. Therefore, we use the following prefab signal:
 --
--- > integrateFrom :: (Monad m, Monoid b, Monoid s) => b -> (s -> a -> b) -> Signal s m a b
+-- > integrateM :: (Monad m, Monoid b, Monoid s) => b -> (s -> a -> b) -> Signal s m a b
 --
 -- Does it look familiar? It looks just like an extension of the
 -- `mkSW_` factory! Let's first guess what this signal does from the
@@ -216,9 +216,12 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 -- state.
 --
 -- As stated, we need a 'Monoid' for integration. Since numerical
--- integration involves summing the results of each step, we use the
--- monoid 'Sum' provided by "Data.Monoid". The model of the system is
--- the function 'dPos'
+-- integration involves summing the results of each step, if we use
+-- the 'integrateM' factory, we will use the monoid 'Sum' provided by
+-- "Data.Monoid". However, since numerical integration is so common,
+-- there is a more convenient signal factory:
+--
+-- > integrate :: (Monad m, Num a, Monoid s) => a -> (s -> a -> a) -> Signal s m a a
 --
 
 
@@ -237,10 +240,10 @@ dPos :: (HasTime t s) =>
     -- ^ Delta session/time
     -> V2 Double
     -- ^ Velocity vector
-    -> Sum (V2 Double)
+    -> V2 Double
         -- ^ delta Position
 dPos s v = let dt = realToFrac $ dtime s
-           in Sum $ v * dt
+           in v * dt
 
 -- | Main signal to update an enemy
 sUpdateEnemy :: (Monad m, HasTime t s) => Enemy -> Signal s m EnemyEvent Enemy
@@ -254,7 +257,7 @@ sUpdateEnemy e0 =
   in proc ev -> do
     dP <- mkId -< dP0 -- Placeholder
     -- v Integrate speed to get position
-    p' <- arr getSum <<< integrateFrom (Sum p0) dPos -< dP
+    p' <- integrate p0 dPos -< dP
     -- v Round position to get the row/col position
     iP' <- arr (fmap round) -< p'
     -- v Return the updated enemy

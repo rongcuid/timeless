@@ -8,7 +8,8 @@ module FRP.Timeless.Prefab.Processing
     (
       sample
     , snapshot
-    , integrateFrom
+    , integrateM
+    , integrate
     )
     where
 
@@ -37,13 +38,20 @@ snapshot :: (Monad m) => Signal s m (Bool, a) a
 snapshot = sample
 
 -- | Make an integration signal from a function that models the chage
-integrateFrom :: (Monad m, Monoid b, Monoid s) =>
+integrateM :: (Monad m, Monoid b, Monoid s) =>
                  b -- ^ Initial state
                  -> (s -> a -> b)
                  -- ^ The model, such as /dX/. 's' is delta session
                  -> Signal s m a b
-integrateFrom b0 f = mkPW $ g b0
+integrateM b0 f = mkPW $ g b0
     where
       g b0 ds a = let db = f ds a
                       b1 = b0 <> db
                   in (b1, mkPW $ g b1)
+
+integrate :: (Monad m, Num a, Monoid s) =>
+             a -- ^ Initial state
+          -> (s -> a -> a)
+          -- ^ The model
+          -> Signal s m a a
+integrate a0 f = integrateM (Sum a0) (\s a -> Sum $ f s a) >>> arr getSum

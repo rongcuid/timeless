@@ -32,7 +32,7 @@ module FRP.Timeless.Tutorial2
        , EnemyEvent(..)
        , Enemy(..)
        , dPos
-       , sUpdateEnemy
+       , sUpdateEnemy0
        , testEnemy
        )
        where
@@ -190,9 +190,9 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 -- only keeps three states: Position, movement, and live. Let's make a
 -- data type for enemy, 'Enemy', and a data type for enemy related
 -- events, 'EnemyEvent'. Since we want modularity, we will compose a
--- big signal, 'sUpdateEnemy' with the type:
+-- big signal, 'sUpdateEnemy0' with the type:
 --
--- > sUpdateEnemy :: (Monad m) => Enemy -> Signal s m EnemyEvent Enemy
+-- > sUpdateEnemy0 :: (Monad m) => Enemy -> Signal s m EnemyEvent Enemy
 --
 -- Inspecting the type, we know that this signal is pure. We are going
 -- to create this signal from some small and reusable ones. Check the
@@ -228,6 +228,49 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 --
 -- > integrate :: (Monad m, Num a, Monoid s) => a -> (s -> a -> a) -> Signal s m a a
 --
+-- In the code of 'sUpdateEnemy0', this line models the system of enemy
+-- position:
+--
+-- > p' <- integrate p0 dPos -< dP'
+--
+-- It reads very clear: integratethe velocity vector (__dP__) over
+-- time using function 'dPos' to get the enemy position.
+--
+-- Then, since our 'Enemy' type stores integer position, we need to
+-- round the fractional position:
+--
+-- > iP' <- arr (fmap round) -< p'
+--
+-- The other thing to model is whether the enemy is alive. This is
+-- easy too:
+--
+-- > a' <- latchR <<< arr (\case {EKill -> True; _ -> False}) -< ev
+--
+-- I used the LambdaCase extension to make the lambda very
+-- short. 'latchR' is one of the latches provided in
+-- "FRP.Timeless.Prefab", which outputs 'True' until the input becomes
+-- 'True', then it latches at 'False'. If you know digital circuits,
+-- think "Reset Latch". Side note: as you may guess, there are
+-- actually three latches at the time of writing: 'latch', 'latchS',
+-- 'latchR'.
+--
+-- A latch is used here because events are discrete, and we know that
+-- enemies die when they are killed. Of course the hero don't like to
+-- see that an enemy has to be constantly killed to be dead!
+--
+-- Finally, we just return an updated copy of enemy, and return. Don't
+-- worry about constantly making new objects: the garbage collector
+-- will do its work. Also note that due to Haskell's laziness, if a
+-- Signal is not used, it will not be evaluated. If you try to debug a
+-- signal, make sure to wire it up to 'sDebug' somewhere, or use its
+-- output in some way that forces evaluation (such as printing or
+-- pattern matching).
+--
+-- The 'testEnemy' function is easy, too. We just takes input, create
+-- events out of them, feed the event to an enemy, and finally print
+-- the enemy. The print signal here is written in a way so that
+-- information will not flood the console.
+
 
 
 data EnemyEvent = EKill | ENoevent
@@ -262,20 +305,23 @@ dPos s v = let dt = realToFrac $ dtime s
            in v * dt
 
 -- | Main signal to update an enemy
-sUpdateEnemy :: (Monad m, HasTime t s) =>
+sUpdateEnemy0 :: (Monad m, HasTime t s) =>
                 Enemy
                 -> Signal s m EnemyEvent Enemy
-sUpdateEnemy e0 =
+sUpdateEnemy0 e0 =
   let P p0 = fromIntegral <$> ePos e0
       -- ^ initial position
-      dP0 = (fromIntegral <$> eDir e0) / (pure $ eSpeed e0)
-      -- ^ Derivative of position, i.e. Velocity
+      uP0 = eDir e0
+      -- ^ Direction vector
+      v = eSpeed e0
+      -- ^ Speed value
       -- | Is it alive?
       a0 = eAlive e0
   in proc ev -> do
-    dP <- mkId -< dP0 -- Placeholder
+    uP' <- mkId -< uP0 -- Direction does not change for now
+    dP' <- arr (\u -> (fromIntegral <$> u) / (pure v)) -< uP'
     -- v Integrate speed to get position
-    p' <- integrate p0 dPos -< dP
+    p' <- integrate p0 dPos -< dP'
     -- v Round position to get the row/col position
     iP' <- arr (fmap round) -< p'
     a' <- latchR <<< arr (\case {EKill -> True; _ -> False}) -< ev
@@ -290,6 +336,6 @@ testEnemy = runBox clockSession_ b
       b = proc _ -> do
         mc <- sInput -< ()
         ev <- arr (\case {Just 'k' -> EKill; _ -> ENoevent}) -< mc
-        e' <- sUpdateEnemy enemy -< ev
+        e' <- sUpdateEnemy0 enemy -< ev
         mkKleisli_ putStr -< show e' ++ "\r"
         returnA -< ()

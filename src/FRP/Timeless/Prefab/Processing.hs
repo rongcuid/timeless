@@ -50,6 +50,7 @@ integrateM b0 f = mkPW $ g b0
                       b1 = b0 <> db
                   in (b1, mkPW $ g b1)
 
+-- | A numerical integration signal.
 integrate :: (Monad m, Num a, HasTime t s) =>
              a -- ^ Initial state
           -> (s -> a -> a)

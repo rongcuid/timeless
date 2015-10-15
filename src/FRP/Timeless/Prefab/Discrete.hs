@@ -86,8 +86,8 @@ edge b0 = proc b -> do
 -- | A Set-Reset latch, with the first input set, second input
 -- reset. Current output value has higher priority (Prefer lazy!)
 latch :: (Monad m) =>
-         Bool -> -- ^ Initial value
-         Signal s m (Bool, Bool) Bool
+         Bool -- ^ Initial value
+      -> Signal s m (Bool, Bool) Bool
 latch b0 = mkPWN $ f b0
     where
       f False (True, False) = (True, latch True)

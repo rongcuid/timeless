@@ -10,6 +10,10 @@ module FRP.Timeless.Prefab.Processing
     , snapshot
     , integrateM
     , integrate
+    , wait
+    , (<=>)
+    , unless'
+    , when'
     )
     where
 
@@ -22,6 +26,8 @@ import Control.Monad.IO.Class
 import FRP.Timeless.Signal
 import FRP.Timeless.Session
 import FRP.Timeless.Prefab.Primitive
+
+import qualified Debug.Trace as D
 
 -- | Takes a sample of second input when the first input becomes
 -- True. First snapshot taken at local time 0, i.e. on construction
@@ -58,3 +64,41 @@ integrate :: (Monad m, Num a, HasTime t s) =>
           -> Signal s m a a
 integrate a0 f = integrateM (Sum a0) (\s a -> Sum $ f s a) >>> arr getSum
 
+-- | Acts as an identity signal for a certain time, then inhibits
+wait :: (HasTime t s, Monad m) => Double -> Signal s m a a
+wait t =
+    mkPure $ \ds a ->
+        let dt = realToFrac $ dtime ds in
+        if | t < 0 -> (Nothing, mkEmpty)
+           | otherwise -> (Just a, wait $ t - dt)
+
+-- | A signal that outputs left side when input is True, and right
+-- side when input is False
+(<=>) :: Monad m =>
+         Maybe b
+      -> Maybe b
+      -> Signal s m Bool b
+mb1 <=> mb2 = mkPureN $ \case
+            True -> (mb1, mb1 <=> mb2)
+            False -> (mb2, mb1 <=> mb2)
+infix 2 <=>
+
+-- | A signal that outputs @b@ but inhibits when input satisfies condition.
+unless' :: Monad m =>
+           b -- ^ Active output
+        -> Bool -- ^ Inhibit condition
+        -> Signal s m Bool b
+b `unless'` pred = mkPureN $ \p ->
+                  if | pred /= p -> (Just b, b `unless'` pred)
+                     | otherwise -> (Nothing, b `unless'` pred)
+infix 2 `unless'`
+
+-- | A signal that inhibits but outputs @b@ when input satisfies condition.
+when' :: Monad m =>
+           b -- ^ Active output
+        -> Bool -- ^ Activate condition
+        -> Signal s m Bool b
+b `when'` pred = mkPureN $ \p ->
+                  if | pred == p -> (Just b, b `when'` pred)
+                     | otherwise -> (Nothing, b `when'` pred)
+infix 2 `when'`

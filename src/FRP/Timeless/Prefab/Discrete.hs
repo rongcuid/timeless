@@ -11,7 +11,7 @@ module FRP.Timeless.Prefab.Discrete
     , impulse
     , oneShot
     , snapOnce
-    , inhibitsAfter
+    , inhibitsAfterPeriods
     , runAndHold
       -- * Logic Signals
     , rising
@@ -43,7 +43,7 @@ import FRP.Timeless.Prefab.Primitive
 occursFor :: (Monad m) => b -- ^ Constant Output
           -> Int -- ^ Number of sample periods
           -> Signal s m a b
-occursFor b n = mkConst (Just b) >>> inhibitsAfter n
+occursFor b n = mkConst (Just b) >>> inhibitsAfterPeriods n
 
 -- | A value that appears for a semantically infinitely short period
 -- of time

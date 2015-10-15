@@ -75,6 +75,7 @@ library
         FlexibleInstances
         FunctionalDependencies
         GADTs
+        LambdaCase
         MultiParamTypeClasses
         MultiWayIf
         RankNTypes

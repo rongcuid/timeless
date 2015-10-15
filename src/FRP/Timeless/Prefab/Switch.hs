@@ -49,11 +49,3 @@ s1 --< s2 =
         Just _ -> return (mb2, s2')
 infixl 1 --<
 
--- | Acts as an identity signal for a certain time, then inhibits
-wait :: (HasTime t s, Monad m) => Double -> Signal s m a a
-wait t =
-    mkPure $ \ds a ->
-        let dt = realToFrac $ dtime ds in
-        if | t < 0 -> (Nothing, mkEmpty)
-           | otherwise -> (Just a, wait $ t - dt)
-

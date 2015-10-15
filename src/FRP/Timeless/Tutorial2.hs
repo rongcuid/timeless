@@ -37,6 +37,14 @@ module FRP.Timeless.Tutorial2
 
        -- ** Player State, Again
        -- $GameState-Player2
+       , Player(..)
+       , PlayerEvent(..)
+       , updatePosX'
+       , sToFire
+       , sFire
+       , sUpdatePlayer
+       , toPlayerEvent
+       , testPlayer2
        )
        where
 
@@ -177,6 +185,7 @@ toMove (Just c)
 testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
     where
       b = proc _ -> do
+        mkActM $ asciiBox 60 30 Vivid Green -< ()
         mc <- sInput -< ()
         mv <- arr toMove -< mc
         x <- sPlayerX -< mv
@@ -350,17 +359,57 @@ testEnemy = runBox clockSession_ b
 -- bullets. Therefore, we can make the 'Player' and 'PlayerEvent' data
 -- types. Similarly, we will make an 'sUpdatePlayer' signal.
 --
+-- To get a feeling of how it works, run 'testPlayer2'. Press 'a' or
+-- 'd' to move around, and '<Space>' to fire. Note that you won't be
+-- able to see it fire unless your computer is unacceptably slow:
+-- Firing is an impulse which is supposed to take infinitely short
+-- time. Though it is technically impossible to achieve this, a
+-- reasonable computer should process this fast enough to make the
+-- change impossible to see.
+--
 -- Modeling the position is trivil here too:
 --
 -- > x' <- mkSW_ x0 updatePosX' -< ev
 --
 -- We are almost doing the same thing as 'sPlayerX'. The only
 -- differences are that we no longer hard code the initial position
--- here, and we use 'PlayerEvent' instead of 'Move'
+-- here, and we use 'PlayerEvent' instead of 'Move'.
+--
+-- Now, it comes to firing bullets. Different from moving, which can
+-- be done as fast as the player hits the keyboard, the cannon of
+-- player's ship needs cooldown. To achieve this, we are going to use
+-- the switching ability of signals.
+--
+-- > (-->) :: (Monad m) => Signal s m a b -> Signal s m a b -> Signal s m a b
+--
+-- A signal, @s1 --> s2@, will produce the output of @s1@ so long as
+-- it is active. When @s1@ inhibits, the signal then activates and
+-- switches to @s2@, and never come back. The timing of cannon can be
+-- done surprisingly easy:
+--
+-- > sFire = (Nothing <=> Just False) --> oneShot True --> (pure False >>> wait 0.25) --> sFire
+--
+-- '(<=>)' is a convenient signal that takes 'Bool' as input, and
+-- outputs the left value when 'True' and right value when
+-- 'False'. Remember that 'Nothing' denotes inhibition. 'oneShot'
+-- resembles an impulse function, which produces an output for a
+-- semantically infinitely short periods of time. The signal reads
+-- very straightforward: When input is 'False', output 'False'; once
+-- input becomes 'True', output 'True' for one shot, then output
+-- 'False' regardless of input for 0.25 seconds, then reset.
 
 data Player = Player {
-      playerPos :: Point V2 Int
+      playerPos :: Point V2 Int -- ^ Position
+    , playerFiring :: Bool -- ^ Whether player is firing bullets
     }
+
+instance Show Player where
+  show p = "[Player] Position: "
+           ++ (show (x, y))
+           ++ " Firing: "
+           ++ (show $ playerFiring p)
+      where
+        P (V2 x y) = playerPos p
 
 data PlayerEvent = PMoveL | PMoveR | PFire | PNoevent deriving (Show)
 
@@ -369,9 +418,18 @@ updatePosX' x PMoveL = updatePosX x MLeft
 updatePosX' x PMoveR = updatePosX x MRight
 updatePosX' x _ = updatePosX x MStay
 
-sFire :: (HasTime t s, Monad m) => Signal s m Bool Bool
-sFire = oneShot True --> (pure False >>> wait 0.25) --> sFire
+-- | Interface 'PlayerEvent' to logic signal
+sToFire :: Monad m => Signal s m PlayerEvent Bool
+sToFire = arr f
+    where
+      f PFire = True
+      f _ = False
 
+-- | The logic signal to handle fire and cooldown
+sFire :: (HasTime t s, Monad m) => Signal s m Bool Bool
+sFire = (Nothing <=> Just False) --> oneShot True --> (pure False >>> wait 0.25) --> sFire
+
+-- | The signal to update player
 sUpdatePlayer :: (Monad m, HasTime t s) =>
                  Player
                  -> Signal s m PlayerEvent Player
@@ -381,4 +439,25 @@ sUpdatePlayer pl0 =
   in proc ev -> do
     -- v Get X coordinate from event
     x' <- mkSW_ x0 updatePosX' -< ev
-    returnA -< pl0 {playerPos = (P $ V2 x' y0)}
+    -- v Fire bullets
+    firing <- sFire <<< sToFire -< ev
+    returnA -< pl0 {playerPos = (P $ V2 x' y0), playerFiring = firing}
+
+-- | Converts a raw input to a 'PlayerEvent'
+toPlayerEvent :: Maybe Char -> PlayerEvent
+toPlayerEvent Nothing = PNoevent
+toPlayerEvent (Just c)
+    | toLower c == 'a' = PMoveL
+    | toLower c == 'd' = PMoveR
+    | c == ' ' = PFire
+    | otherwise = PNoevent
+
+testPlayer2 :: IO ()
+testPlayer2 = runBox clockSession_ b
+    where
+      pl0 = Player (P $ V2 30 28) False
+      b = proc _ -> do
+        pe <- arr toPlayerEvent <<< sInput -< ()
+        pl' <- sUpdatePlayer pl0 -< pe
+        mkKleisli_ putStr -< show pl' ++ "\r"
+        returnA -< ()

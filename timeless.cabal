@@ -62,6 +62,7 @@ library
                  , FRP.Timeless.Run
                  , FRP.Timeless.Prefab
                  , FRP.Timeless.Prefab.Discrete
+                 , FRP.Timeless.Prefab.Switch
                  , FRP.Timeless.Prefab.Primitive
                  , FRP.Timeless.Prefab.Processing
                  , FRP.Timeless.Prefab.Utils

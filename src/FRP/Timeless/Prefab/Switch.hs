@@ -56,3 +56,4 @@ wait t =
         let dt = realToFrac $ dtime ds in
         if | t < 0 -> (Nothing, mkEmpty)
            | otherwise -> (Just a, wait $ t - dt)
+

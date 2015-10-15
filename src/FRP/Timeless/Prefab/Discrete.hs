@@ -27,7 +27,16 @@ import FRP.Timeless.Prefab.Primitive
 occursFor :: (Monad m) => b -- ^ Constant Output
           -> Int -- ^ Number of sample periods
           -> Signal s m a b
-occursFor b n = mkPW_ (\_ -> b) >>> inhibitsAfter n
+occursFor b n = mkConst (Just b) >>> inhibitsAfter n
+
+-- | A value that appears for a semantically infinitely short period
+-- of time
+impulse :: (Monad m) => b -> Signal s m a b
+impulse b = b `occursFor` 1
+
+-- -- | A value that only appears for one sample period. Synonym of 'impulse'
+oneShot :: (Monad m) => b -> Signal s m a b
+oneShot = impulse
 
 -- | Takes the snapshot of the value when signal is activated,
 -- and then holds value forever

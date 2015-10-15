@@ -1,4 +1,4 @@
--- | Tutorial 2 for 'timeless'.
+-- | 
 -- Module:     FRP.Timeless.Tutorial2
 -- Copyright:  (c) 2015 Rongcui Dong
 -- License:    BSD3
@@ -7,6 +7,32 @@
 {-# LANGUAGE Arrows #-}
 
 module FRP.Timeless.Tutorial2
+       (
+       -- * Introduction
+       -- $Introduction
+
+       -- * Input/Output
+       -- $IO
+       sInput
+       , drawPlayer
+       , testIO
+         
+       -- * Game State
+       -- ** Player State
+       -- $GameState-Player
+       , Move(..)
+       , updatePosX
+       , sPlayerX
+       , toMove
+       , testPlayer
+         
+       -- ** Enemy State
+       -- $GameState-Enemy
+       , EnemyEvent(..)
+       , Enemy(..)
+       , sUpdateEnemy
+       , dPos
+       )
        where
 
 import System.Console.ANSI
@@ -14,12 +40,7 @@ import FRP.Timeless
 import FRP.Timeless.Framework.Console
 import Data.Char
 
--- * Introduction
--- $Introduction
--- * Input/Output
--- $IO
--- * Game State
--- $GameState
+
 
 
 -- $Introduction
@@ -63,7 +84,8 @@ import Data.Char
 -- a larger stateful render action. Notice that the initial value of
 -- 'drawChar' is set to (-1) since it is an impossible value for a
 -- normal update, so the console is rendered correctly on the first
--- "frame"
+-- "frame". A similar function provided in the framework is
+-- 'drawCharS'
 --
 -- Again, testing with @timeless@ is easy: Just connect a simple
 -- box. Here, the test function is `testIO`, where almost everything
@@ -77,12 +99,13 @@ sInput = sInputNonBlocking
 -- | Draws a vivid white @^@ on the bottom line, and deals with flickering
 drawPlayer :: Int -> Int -> IO Int
 drawPlayer c c'
-    | c /= c' = do
-  -- v Clear line
-  clearLineRange 28 1 59
-  -- V Draw character
-  drawChar '^' 28 c' Vivid White
-  return c'
+    | c /= c' =
+      do
+        -- v Clear line
+        clearLineRange 28 1 59
+        -- V Draw character
+        drawChar '^' 28 c' Vivid White
+        return c'
     | otherwise = return c
 
 testIO = initConsole defaultInitConfig >> runBox clockSession_ b
@@ -100,7 +123,7 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
         mkSK_ (-1) drawPlayer -< x
         returnA -< ()
 
--- $GameState
+-- $GameState-Player
 -- 
 -- Next, we are going to make something complicated. Considering that
 -- this is a _game_, we don't want the objects to move
@@ -111,12 +134,12 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
 -- Since only the X coordinate matters, our state for the player is
 -- just one integer, giving an overall state transition function of
 -- type, where 'Move' is the type for the player input. In this game,
--- `Move` is just an enumerate.
+-- `Move' is just an enumerate.
 -- 
 -- > Int -> Move -> Int
 --
 -- Look at 'sPlayerX' to get an idea. In order to get the 'Move' data
--- from user input, we need another signal that converts 'Maybe Char'
+-- from user input, we need another signal that converts `Maybe Char`
 -- to 'Move':
 --
 -- > Signal s m (Maybe Char) Move
@@ -153,3 +176,86 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
         x <- sPlayerX -< mv
         mkSK_ (-1) drawPlayer -< x
         returnA -< ()
+
+-- $GameState-Enemy
+--
+-- After getting a working player state, we are going to create the
+-- data and states for ememies. For this simple demo game, the enemy
+-- only keeps three states: Position, movement, and live. Let's make a
+-- data type for enemy, 'Enemy', and a data type for enemy related
+-- events, 'EnemyEvent'. Since we want modularity, we will compose a
+-- big signal, 'sUpdateEnemy' with the type:
+--
+-- > sUpdateEnemy :: (Monad m) => Enemy -> Signal s m EnemyEvent Enemy
+--
+-- Inspecting the type, we know that this signal is pure. We are going
+-- to create this signal from some small and reusable ones. Check the
+-- source to have a glance. I will explain each part.
+--
+-- First, let's handle the position update. "Physically", the position
+-- is just the integral of velocity over time. Note that although
+-- enemies can only occupy integer positions, internally we can keep
+-- fractional positions. Therefore, we use the following prefab signal:
+--
+-- > integrateWith :: (Monad m, Monoid b, Monoid s) => b -> (s -> a -> b) -> Signal s m a b
+--
+-- Does it look familiar? It looks just like an extension of the
+-- `mkSW_` factory! Let's first guess what this signal does from the
+-- type of its factory.
+--
+-- `s` is a 'Monoid' because it is the delta 'Session', or time. The
+-- input type is 'a', output type is `b`, and it has to be a
+-- 'Monoid'. We are supplying one single `b`, and a function with type
+-- `s -> a -> b`. First, the single `b` is probably an initial
+-- state. Then, being a 'Monoid' means that two `b`s can be combined
+-- together. If the function supplied just generates a new `b` like
+-- `mkSW_` does, then there is no need to make it a
+-- `Monoid`. Therefore, we can conclude that the function supplied
+-- must produce the difference between the current state and the next
+-- state.
+--
+-- Here, our type of position is '(Double, Double)', so is that of
+-- speed. Therefore, we get a difference function 'dPos'.
+--
+-- Then, we need the velocity vector to get this function work. We
+-- simply multiply the speed with the direction vector. Notice that we
+-- have a tuple as our direction vector, so `fmap` won't work
+-- here. Instead, we need to make use of Arrow combinators:
+--
+-- > ((*speed) *** (*speed)) direction
+--
+-- Here, the Arrow is (->) but not 'Signal s m'. Of course, this is
+-- not a pretty solution. In actual games, it is better to use 'V2'
+-- from "Linear" package, but I don't want to introduce an additional
+-- dependancy just for a tutorial.
+--
+
+data EnemyEvent = EKill
+
+data Enemy = Enemy {
+      ePos :: (Int, Int) -- ^ Enemy Position
+    , eDir :: (Int, Int) -- ^ Direction vector
+    , eSpeed :: Double -- ^ Speed, affecting update interval
+    , eAlive :: Bool -- ^ Is it alive?
+    }
+
+-- | Modeling the change of position
+dPos :: (HasTime t s) => s -- ^ Delta session/time
+     -> (Double, Double)
+     -- ^ Velocity vector
+     -> (Double, Double)
+        -- ^ delta Position
+dPos s v = let t = realToFrac $ dtime s
+               f = (*t) *** (*t)
+           in f v
+
+sUpdateEnemy :: (Monad m) => Enemy -> Signal s m EnemyEvent Enemy
+sUpdateEnemy e0 =
+  let (x0,y0) = ePos e0
+      (x0f, y0f) = (fromIntegral x0, fromIntegral y0)
+      (dX0, dY0) = eDir e0
+      s0 = eSpeed e0
+      a0 = eAlive e0
+  in proc ev -> do
+    
+      returnA -< e0 -- Placeholder

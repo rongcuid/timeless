@@ -34,3 +34,14 @@ sample = mkPWN f
 snapshot :: (Monad m) => Signal s m (Bool, a) a
 snapshot = sample
 
+-- | Make an integration signal from a function that models the chage
+integrateWith :: (Monad m, Monoid b, Monoid s) =>
+                 b -- ^ Initial state
+                 -> (s -> a -> b)
+                 -- ^ The model, such as /dX/. 's' is delta session
+                 -> Signal s m a b
+integrateWith b0 f = mkPW $ g b0
+    where
+      g b0 ds a = let db = f ds a
+                      b1 = b0 <> db
+                  in (b1, mkPW $ g b1)

@@ -62,6 +62,20 @@ drawChar c rol col i color = do
   putChar c
   setSGR [Reset]
 
+-- | Statefully draw character
+drawCharS :: Char -- ^ The character
+           -> ColorIntensity -> Color
+           -> (Int, Int) -- Previous Position
+           -> (Int, Int) -- Next Position
+           -> IO (Int, Int)
+drawCharS c i col (r0,c0) (r',c')
+    | (r0,c0) /= (r',c') =
+        do
+          drawChar ' ' r0 c0 i col
+          drawChar c r' c' i col
+          return (r', c')
+    | otherwise = return (r0, c0)
+
 -- | Clears a certain column range on a certain row
 clearLineRange :: Int -- ^ Row
                -> Int -- ^ Beginning Col

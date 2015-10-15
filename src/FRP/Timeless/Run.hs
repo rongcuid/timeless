@@ -1,7 +1,6 @@
 -- |
 -- Module:     FRP.Timeless.Run
--- Copyright:  Original work (c) 2013 Ertugrul Soeylemez
--- Copyright:  Derived work (c) 2015 Rongcui Dong
+-- Copyright:  (c) 2013 Ertugrul Soeylemez (c) 2015 Rongcui Dong
 -- License:    BSD3
 -- Maintainer: Ertugrul Soeylemez <es@ertes.de>
 -- Maintainer: Rongcui Dong <karl_1702@188.com>

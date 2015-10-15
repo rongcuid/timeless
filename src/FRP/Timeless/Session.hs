@@ -1,7 +1,6 @@
 -- |
 -- Module:     FRP.Timeless.Session
--- Copyright:  (c) 2013 Ertugrul Soeylemez
--- Copyright:  (c) 2015 Rongcui Dong
+-- Copyright:  (c) 2013 Ertugrul Soeylemez (c) 2015 Rongcui Dong
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
@@ -28,8 +27,8 @@ import Data.Time.Clock
 import Data.Traversable (Traversable)
 
 
--- | State delta types with time deltas.
-
+-- | State delta types with time deltas. You can extract fractionals
+-- using 'realToFrac'
 class (Monoid s, Real t) => HasTime t s | s -> t where
     -- | Extract the current time delta.
     dtime :: s -> t

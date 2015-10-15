@@ -352,17 +352,22 @@ testEnemy = runBox clockSession_ b
 --
 -- Modeling the position is trivil here too:
 --
--- > x' <- mkSW_ x0 updatePosX -< ev
+-- > x' <- mkSW_ x0 updatePosX' -< ev
 --
 -- We are almost doing the same thing as 'sPlayerX'. The only
--- difference is that we no longer hard code the initial position
--- here.
+-- differences are that we no longer hard code the initial position
+-- here, and we use 'PlayerEvent' instead of 'Move'
 
 data Player = Player {
       playerPos :: Point V2 Int
     }
 
-data PlayerEvent = PMove Move | PFire | PNoevent deriving (Show)
+data PlayerEvent = PMoveL | PMoveR | PFire | PNoevent deriving (Show)
+
+-- | Just a wrapper around 'updatePosX'
+updatePosX' x PMoveL = updatePosX x MLeft
+updatePosX' x PMoveR = updatePosX x MRight
+updatePosX' x _ = updatePosX x MStay
 
 sUpdatePlayer :: (Monad m, HasTime t s) =>
                  Player
@@ -372,5 +377,5 @@ sUpdatePlayer pl0 =
       -- ^ Initial position
   in proc ev -> do
     -- v Get X coordinate from event
-    x' <- mkSW_ x0 updatePosX -< ev
-    returnA -< pl0 {playerPos = (P $ V2 x' y)}
+    x' <- mkSW_ x0 updatePosX' -< ev
+    returnA -< pl0 {playerPos = (P $ V2 x' y0)}

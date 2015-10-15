@@ -121,7 +121,8 @@ instance (Monad m) => Applicative (Signal s m a) where
             
 
 -- | Steps a signal in certain time step
-stepSignal :: (Monad m) => Signal s m a b 
+stepSignal :: (Monad m) =>
+              Signal s m a b 
            -- ^ Signal to be stepped
            -> s
            -- ^ Delta session

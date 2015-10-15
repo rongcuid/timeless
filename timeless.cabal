@@ -75,6 +75,7 @@ library
         FunctionalDependencies
         GADTs
         MultiParamTypeClasses
+        MultiWayIf
         RankNTypes
         TupleSections
 

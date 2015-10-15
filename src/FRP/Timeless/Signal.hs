@@ -1,6 +1,7 @@
 -- |
 -- Module:     FRP.Timeless.Signal
--- Copyright:  (c) 2013 Ertugrul Soeylemez (c) 2015 Rongcui Dong
+-- Copyright:  (c) Ertugrul Soeylemez, 2013
+--                 Rongcui Dong, 2015
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 

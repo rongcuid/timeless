@@ -1,6 +1,6 @@
 -- | 
 -- Module:     FRP.Timeless.Tutorial2
--- Copyright:  (c) 2015 Rongcui Dong
+-- Copyright:  (c) Rongcui Dong, 2015
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
@@ -34,6 +34,9 @@ module FRP.Timeless.Tutorial2
        , dPos
        , sUpdateEnemy0
        , testEnemy
+
+       -- ** Player State, Again
+       -- $GameState-Player2
        )
        where
 
@@ -150,7 +153,7 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
 -- We will call this function 'toMove'. Again, try to construct a box
 -- for testing: `testPlayer`. 
 
-data Move = MLeft | MRight | MStay
+data Move = MLeft | MRight | MStay deriving (Show)
 
 
 -- | Updates an X coordinate
@@ -332,10 +335,42 @@ sUpdateEnemy0 e0 =
 testEnemy :: IO ()
 testEnemy = runBox clockSession_ b
     where
-      enemy = Enemy (P $ V2 1 1) (V2 0 1) 1 True
+      enemy = Enemy (P $ V2 1 1) (V2 1 1) 1 True
       b = proc _ -> do
         mc <- sInput -< ()
         ev <- arr (\case {Just 'k' -> EKill; _ -> ENoevent}) -< mc
         e' <- sUpdateEnemy0 enemy -< ev
         mkKleisli_ putStr -< show e' ++ "\r"
         returnA -< ()
+
+-- $GameState-Player2
+--
+-- Now, learning from our enemies, we can also package our player
+-- up. Our player does not die, but it does move, and fire
+-- bullets. Therefore, we can make the 'Player' and 'PlayerEvent' data
+-- types. Similarly, we will make an 'sUpdatePlayer' signal.
+--
+-- Modeling the position is trivil here too:
+--
+-- > x' <- mkSW_ x0 updatePosX -< ev
+--
+-- We are almost doing the same thing as 'sPlayerX'. The only
+-- difference is that we no longer hard code the initial position
+-- here.
+
+data Player = Player {
+      playerPos :: Point V2 Int
+    }
+
+data PlayerEvent = PMove Move | PFire | PNoevent deriving (Show)
+
+sUpdatePlayer :: (Monad m, HasTime t s) =>
+                 Player
+                 -> Signal s m PlayerEvent Player
+sUpdatePlayer pl0 =
+  let P p0@(V2 x0 y0) = playerPos pl0
+      -- ^ Initial position
+  in proc ev -> do
+    -- v Get X coordinate from event
+    x' <- mkSW_ x0 updatePosX -< ev
+    returnA -< pl0 {playerPos = (P $ V2 x' y)}

@@ -57,3 +57,4 @@ integrate :: (Monad m, Num a, HasTime t s) =>
           -- ^ The model
           -> Signal s m a a
 integrate a0 f = integrateM (Sum a0) (\s a -> Sum $ f s a) >>> arr getSum
+

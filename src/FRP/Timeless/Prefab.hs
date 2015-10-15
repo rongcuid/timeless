@@ -11,6 +11,8 @@ module FRP.Timeless.Prefab
     , module FRP.Timeless.Prefab.Processing
     -- * Discrete
     , module FRP.Timeless.Prefab.Discrete
+    -- * Switching
+    , module FRP.Timeless.Prefab.Switch
     -- * Utilities
     , module FRP.Timeless.Prefab.Utils
     )
@@ -20,4 +22,5 @@ import FRP.Timeless.Prefab.Discrete
 import FRP.Timeless.Prefab.Primitive
 import FRP.Timeless.Prefab.Processing
 import FRP.Timeless.Prefab.Utils
+import FRP.Timeless.Prefab.Switch
 

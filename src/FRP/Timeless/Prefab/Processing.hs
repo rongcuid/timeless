@@ -20,6 +20,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 
 import FRP.Timeless.Signal
+import FRP.Timeless.Session
 import FRP.Timeless.Prefab.Primitive
 
 -- | Takes a sample of second input when the first input becomes
@@ -38,7 +39,7 @@ snapshot :: (Monad m) => Signal s m (Bool, a) a
 snapshot = sample
 
 -- | Make an integration signal from a function that models the chage
-integrateM :: (Monad m, Monoid b, Monoid s) =>
+integrateM :: (Monad m, Monoid b, HasTime t s) =>
                  b -- ^ Initial state
                  -> (s -> a -> b)
                  -- ^ The model, such as /dX/. 's' is delta session
@@ -49,7 +50,7 @@ integrateM b0 f = mkPW $ g b0
                       b1 = b0 <> db
                   in (b1, mkPW $ g b1)
 
-integrate :: (Monad m, Num a, Monoid s) =>
+integrate :: (Monad m, Num a, HasTime t s) =>
              a -- ^ Initial state
           -> (s -> a -> a)
           -- ^ The model

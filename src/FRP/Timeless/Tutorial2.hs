@@ -32,6 +32,7 @@ module FRP.Timeless.Tutorial2
        , Enemy(..)
        , dPos
        , sUpdateEnemy
+       , testEnemy
        )
        where
 
@@ -42,7 +43,7 @@ import Data.Char
 import Data.Monoid
 import Linear
 import Linear.Affine
-
+import qualified Debug.Trace as D
 
 -- $Introduction
 --
@@ -225,7 +226,7 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 --
 
 
-data EnemyEvent = EKill
+data EnemyEvent = EKill | ENoevent
 
 data Enemy = Enemy {
       ePos :: Point V2 Int -- ^ Enemy Position
@@ -233,6 +234,17 @@ data Enemy = Enemy {
     , eSpeed :: Double -- ^ Speed, affecting update interval
     , eAlive :: Bool -- ^ Is it alive?
     }
+
+instance Show Enemy where
+  show e = "[Enemy] At: "
+           ++ (show (x,y))
+           ++ " Velocity: "
+           ++ (show (vx,vy))
+           ++ " Alive: "
+           ++ show (eAlive e)
+               where
+                 P (V2 x y) = ePos e
+                 V2 vx vy = (fromIntegral <$> eDir e) / (pure $ eSpeed e)
 
 -- | Modeling the change of position
 dPos :: (HasTime t s) =>
@@ -246,7 +258,9 @@ dPos s v = let dt = realToFrac $ dtime s
            in v * dt
 
 -- | Main signal to update an enemy
-sUpdateEnemy :: (Monad m, HasTime t s) => Enemy -> Signal s m EnemyEvent Enemy
+sUpdateEnemy :: (Monad m, HasTime t s) =>
+                Enemy
+                -> Signal s m EnemyEvent Enemy
 sUpdateEnemy e0 =
   let P p0 = fromIntegral <$> ePos e0
       -- ^ initial position
@@ -261,4 +275,14 @@ sUpdateEnemy e0 =
     -- v Round position to get the row/col position
     iP' <- arr (fmap round) -< p'
     -- v Return the updated enemy
-    returnA -< e0 {ePos = P iP'}
+    let e' = e0 {ePos = P iP'}
+    returnA -< e'
+
+testEnemy :: IO ()
+testEnemy = runBox clockSession_ b
+    where
+      enemy = Enemy (P $ V2 1 1) (V2 0 1) 1 True
+      b = proc _ -> do
+        e' <- sUpdateEnemy enemy -< ENoevent
+        sDebug -< show e'
+        returnA -< ()

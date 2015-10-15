@@ -30,8 +30,8 @@ module FRP.Timeless.Tutorial2
        -- $GameState-Enemy
        , EnemyEvent(..)
        , Enemy(..)
-       , sUpdateEnemy
        , dPos
+       , sUpdateEnemy
        )
        where
 
@@ -39,8 +39,9 @@ import System.Console.ANSI
 import FRP.Timeless
 import FRP.Timeless.Framework.Console
 import Data.Char
-
-
+import Data.Monoid
+import Linear
+import Linear.Affine
 
 
 -- $Introduction
@@ -197,7 +198,7 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 -- enemies can only occupy integer positions, internally we can keep
 -- fractional positions. Therefore, we use the following prefab signal:
 --
--- > integrateWith :: (Monad m, Monoid b, Monoid s) => b -> (s -> a -> b) -> Signal s m a b
+-- > integrateFrom :: (Monad m, Monoid b, Monoid s) => b -> (s -> a -> b) -> Signal s m a b
 --
 -- Does it look familiar? It looks just like an extension of the
 -- `mkSW_` factory! Let's first guess what this signal does from the
@@ -214,48 +215,47 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 -- must produce the difference between the current state and the next
 -- state.
 --
--- Here, our type of position is '(Double, Double)', so is that of
--- speed. Therefore, we get a difference function 'dPos'.
+-- As stated, we need a 'Monoid' for integration. Since numerical
+-- integration involves summing the results of each step, we use the
+-- monoid 'Sum' provided by "Data.Monoid". The model of the system is
+-- the function 'dPos'
 --
--- Then, we need the velocity vector to get this function work. We
--- simply multiply the speed with the direction vector. Notice that we
--- have a tuple as our direction vector, so `fmap` won't work
--- here. Instead, we need to make use of Arrow combinators:
---
--- > ((*speed) *** (*speed)) direction
---
--- Here, the Arrow is (->) but not 'Signal s m'. Of course, this is
--- not a pretty solution. In actual games, it is better to use 'V2'
--- from "Linear" package, but I don't want to introduce an additional
--- dependancy just for a tutorial.
---
+
 
 data EnemyEvent = EKill
 
 data Enemy = Enemy {
-      ePos :: (Int, Int) -- ^ Enemy Position
-    , eDir :: (Int, Int) -- ^ Direction vector
+      ePos :: Point V2 Int -- ^ Enemy Position
+    , eDir :: V2 Int -- ^ Direction vector
     , eSpeed :: Double -- ^ Speed, affecting update interval
     , eAlive :: Bool -- ^ Is it alive?
     }
 
 -- | Modeling the change of position
-dPos :: (HasTime t s) => s -- ^ Delta session/time
-     -> (Double, Double)
-     -- ^ Velocity vector
-     -> (Double, Double)
+dPos :: (HasTime t s) =>
+       s
+    -- ^ Delta session/time
+    -> V2 Double
+    -- ^ Velocity vector
+    -> Sum (V2 Double)
         -- ^ delta Position
-dPos s v = let t = realToFrac $ dtime s
-               f = (*t) *** (*t)
-           in f v
+dPos s v = let dt = realToFrac $ dtime s
+           in Sum $ v * dt
 
-sUpdateEnemy :: (Monad m) => Enemy -> Signal s m EnemyEvent Enemy
+-- | Main signal to update an enemy
+sUpdateEnemy :: (Monad m, HasTime t s) => Enemy -> Signal s m EnemyEvent Enemy
 sUpdateEnemy e0 =
-  let (x0,y0) = ePos e0
-      (x0f, y0f) = (fromIntegral x0, fromIntegral y0)
-      (dX0, dY0) = eDir e0
-      s0 = eSpeed e0
+  let P p0 = fromIntegral <$> ePos e0
+      -- ^ initial position
+      dP0 = (fromIntegral <$> eDir e0) / (pure $ eSpeed e0)
+      -- ^ Derivative of position, i.e. Velocity
+      -- | Is it alive?
       a0 = eAlive e0
   in proc ev -> do
-    
-      returnA -< e0 -- Placeholder
+    dP <- mkId -< dP0 -- Placeholder
+    -- v Integrate speed to get position
+    p' <- arr getSum <<< integrateFrom (Sum p0) dPos -< dP
+    -- v Round position to get the row/col position
+    iP' <- arr (fmap round) -< p'
+    -- v Return the updated enemy
+    returnA -< e0 {ePos = P iP'}

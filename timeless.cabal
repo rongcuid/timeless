@@ -89,6 +89,7 @@ library
                      , time
                      , transformers
                      , ansi-terminal
+                     , linear
 
   -- Directories containing source files.
   hs-source-dirs:      src

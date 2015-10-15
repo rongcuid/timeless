@@ -369,8 +369,8 @@ updatePosX' x PMoveL = updatePosX x MLeft
 updatePosX' x PMoveR = updatePosX x MRight
 updatePosX' x _ = updatePosX x MStay
 
--- sFire :: (HasTime t s, Monad m) => Signal s m Bool Bool
--- sFire = oneShot True --> (pure False >>> wait 0.25) --> sFire
+sFire :: (HasTime t s, Monad m) => Signal s m Bool Bool
+sFire = oneShot True --> (pure False >>> wait 0.25) --> sFire
 
 sUpdatePlayer :: (Monad m, HasTime t s) =>
                  Player

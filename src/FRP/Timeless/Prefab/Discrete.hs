@@ -5,6 +5,22 @@
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 module FRP.Timeless.Prefab.Discrete
+    (
+      -- * Discrete Signals
+      occursFor
+    , impulse
+    , oneShot
+    , snapOnce
+    , inhibitsAfter
+    , runAndHold
+      -- * Logic Signals
+    , rising
+    , falling
+    , edge
+    , latch
+    , latchS
+    , latchR
+    )
     where
 
 import Control.Arrow
@@ -51,10 +67,10 @@ snapOnce :: (Monad m) => Signal s m a a
 snapOnce = SGen $ \_ ma -> return (ma, SConst ma)
 
 -- | Acts as identity for a several sample periods, then inhibits.
-inhibitsAfter :: Int -> Signal s m a a
-inhibitsAfter n
+inhibitsAfterPeriods :: Int -> Signal s m a a
+inhibitsAfterPeriods n
     | n == 0 = mkEmpty
-    | n > 0 = mkPureN $ \a -> (Just a, inhibitsAfter $ n-1)
+    | n > 0 = mkPureN $ \a -> (Just a, inhibitsAfterPeriods $ n-1)
     | otherwise = error "[ERROR] inhibitsAfter: Nothing will inhibit in the past!"
 
 -- | Runs a signal once and hold the result forever.
@@ -63,7 +79,7 @@ inhibitsAfter n
 runAndHold :: (Monad m) =>
               Signal s m a b
            -> Signal s m a b
-runAndHold sig = inhibitsAfter 1 >>> sig >>> snapOnce
+runAndHold sig = inhibitsAfterPeriods 1 >>> sig >>> snapOnce
 
 -- | Rising edge filter. Creates an impulse at rising edge
 rising :: (Monad m) =>

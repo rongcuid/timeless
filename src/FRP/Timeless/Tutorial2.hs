@@ -5,6 +5,7 @@
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE LambdaCase #-}
 
 module FRP.Timeless.Tutorial2
        (
@@ -181,6 +182,9 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 
 -- $GameState-Enemy
 --
+-- As a foreword, run 'testEnemy' to see how enemy data is
+-- updated. Press 'k' (lower case, for simplicity) to kill the enemy
+--
 -- After getting a working player state, we are going to create the
 -- data and states for ememies. For this simple demo game, the enemy
 -- only keeps three states: Position, movement, and live. Let's make a
@@ -274,8 +278,9 @@ sUpdateEnemy e0 =
     p' <- integrate p0 dPos -< dP
     -- v Round position to get the row/col position
     iP' <- arr (fmap round) -< p'
+    a' <- latchR <<< arr (\case {EKill -> True; _ -> False}) -< ev
     -- v Return the updated enemy
-    let e' = e0 {ePos = P iP'}
+    let e' = e0 {ePos = P iP', eAlive = a'}
     returnA -< e'
 
 testEnemy :: IO ()
@@ -283,6 +288,8 @@ testEnemy = runBox clockSession_ b
     where
       enemy = Enemy (P $ V2 1 1) (V2 0 1) 1 True
       b = proc _ -> do
-        e' <- sUpdateEnemy enemy -< ENoevent
-        sDebug -< show e'
+        mc <- sInput -< ()
+        ev <- arr (\case {Just 'k' -> EKill; _ -> ENoevent}) -< mc
+        e' <- sUpdateEnemy enemy -< ev
+        mkKleisli_ putStr -< show e' ++ "\r"
         returnA -< ()

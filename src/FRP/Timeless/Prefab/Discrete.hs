@@ -82,3 +82,26 @@ edge b0 = proc b -> do
   b'1 <- rising b0 -< b
   b'2 <- falling b0 -< b
   returnA -< b'1 || b'2
+
+-- | A Set-Reset latch, with the first input set, second input
+-- reset. Current output value has higher priority (Prefer lazy!)
+latch :: (Monad m) =>
+         Bool -> -- ^ Initial value
+         Signal s m (Bool, Bool) Bool
+latch b0 = mkPWN $ f b0
+    where
+      f False (True, False) = (True, latch True)
+      f True (False, True) = (False, latch False)
+      f b0 (_, _) = (b0, latch b0)
+
+-- | A set-latch whose initial value is False, but turns True and holds
+-- when its input becomes true
+latchS :: (Monad m) => Signal s m Bool Bool
+latchS = proc s -> do
+            returnA <<< latch False -< (s, False)
+
+-- | A reset-latch whose initial value is True, but turns False and holds
+-- when its input becomes false
+latchR :: (Monad m) => Signal s m Bool Bool
+latchR = proc s -> do
+            returnA <<< latch True -< (False, s)

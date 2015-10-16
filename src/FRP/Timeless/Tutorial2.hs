@@ -49,6 +49,11 @@ module FRP.Timeless.Tutorial2
        -- ** Firing Bullets
        -- $GameState-Bullets
        , Bullet(..)
+       , BulletEvent(..)
+       , sUpdateBullet
+
+       -- ** Enemy State, Again
+       -- $GameState-Enemy2
        )
        where
 
@@ -485,7 +490,8 @@ testPlayer2 = runBox clockSession_ b
 -- 
 -- After properly handling fire interval, we know that we have a logic
 -- signal that denotes the status of firing. To actually fire a
--- bullet, we need some dynamic switching.
+-- bullet, we need some dynamic switching, so we will test this
+-- section later when we have written collision handling.
 --
 -- First, we need 'Bullet' and 'BulletEvent' types. Since there are no
 -- fancy special bullets here, we only need two internal states:
@@ -529,3 +535,36 @@ sUpdateBullet b0 =
     iP' <- arr (fmap round) -< p'
     d' <- latchS <<< arr (\case {BDestroy -> True; _ -> False}) -< ev
     returnA -< b0 {bulletPos = P iP', bulletIsDestroyed = d'}
+
+
+-- $GameState-Enemy2
+--
+-- Now, our enemy has constant velocity. This is a problem: if we just
+-- keep it in this way, the enemy will soon run off the screen. We
+-- have to flip the horizontal direction when the enemy reaches the
+-- boundary. This introduces a slight problem: our position depends on
+-- velocity, and velocity depends on position. To solve this, we will
+-- use the black magic of 'ArrowLoop', which somehow magically solves
+-- this problem easily (I have read the book /Functional Reactive
+-- Programming/, which uses Java 8 as the language. The circular
+-- dependancy solution there seems a lot more complicated).
+--
+-- Since we are making the signals more complicated, it is a good idea
+-- to further divide them. We observe that the position-velocity
+-- system can be isolated away, so let's make a signal that only deals
+-- with that. Take a look at 'sUpdateBoundedPosition'.
+--
+-- The type is long, but you may already guessed what it does. We pass
+-- in the initial position, velocity, and boundary size. We get a
+-- /constant/ signal that outputs the position of a point. I call it
+-- /constant/ because it ignores any input. However, it does update
+-- its state using the implicit time parameter.
+
+
+sUpdateBoundedPosition :: (Monad m, HasTime t s) =>
+                          Point V2 Double
+                       -> V2 Double
+                       -> Signal s m a (Point V2 Double)
+sUpdateBoundedPosition p0 dP0 =
+  proc _ -> do
+    returnA -< p0 -- Placeholder

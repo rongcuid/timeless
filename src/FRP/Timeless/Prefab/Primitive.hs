@@ -1,6 +1,7 @@
 -- |
 -- Module:     FRP.Timeless.Prefab.Primitive
--- Copyright:  (c) 2015 Rongcui Dong
+-- Copyright:  (c) Ertugrul Soeylemez, 2013
+--                 Rongcui Dong, 2015
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
@@ -30,6 +31,8 @@ module FRP.Timeless.Prefab.Primitive
     , mkSK_
     , mkConstM
     , mkActM
+    -- * Special signals
+    , delay
     )
     where
 
@@ -156,3 +159,14 @@ mkConstM b = mkKleisli_ $ \_ -> b
 -- | Make a monadic action wire, alias for mkConstM
 mkActM :: (Monad m) => m b -> Signal s m a b
 mkActM = mkConstM
+
+
+-- | This wire delays its input signal by the smallest possible
+-- (semantically infinitesimal) amount of time.  You can use it when you
+-- want to use feedback ('ArrowLoop'):  If the user of the feedback
+-- depends on /now/, delay the value before feeding it back.  The
+-- argument value is the replacement signal at the beginning.
+--
+-- * Depends: before now.
+delay :: a -> Signal s m a a
+delay x' = mkPWN $ \x -> (x', delay x)

@@ -54,6 +54,8 @@ module FRP.Timeless.Tutorial2
 
        -- ** Enemy State, Again
        -- $GameState-Enemy2
+       , sUpdateBoundedPosition
+       , testUBP
        )
        where
 
@@ -553,15 +555,40 @@ sUpdateBullet b0 =
 -- Since we are making the signals more complicated, it is a good idea
 -- to further divide them. We observe that the position-velocity
 -- system can be isolated away, so let's make a signal that only deals
--- with that. Take a look at 'sUpdateBoundedPosition'.
+-- with that. Take a look at 'sUpdateBoundedPosition', and try it by
+-- running 'testUBP'.
 --
 -- The type is long, but you may already guessed what it does. We pass
 -- in the initial position, velocity, and boundary size. We get a
 -- /constant/ signal that outputs the position of a point. I call it
 -- /constant/ because it ignores any input. However, it does update
 -- its state using the implicit time parameter.
+--
+-- Now I am going to explain the magical 'ArrowLoop'. I call it
+-- /magical/ because I don't fully understand step by step how it
+-- works yet (it is most likely to work similar to the fixed point
+-- function 'fix', which I still don't quite get yet).
+--
+-- The 'loop' function has the following type:
+--
+-- > loop :: ArrowLoop a => a (b, d) (c, d) -> a b c
+--
+-- Where the @d@ is fed back to input. The main problem we have here
+-- is to feed the initial value in without diverging the function. We
+-- use a 'delay' function to shift the input for a minimalistic amount
+-- of time, and the /black magic/ of laziness will prevent the signal
+-- from diverging. The simplified structure is like following:
+--
+-- > update :: Signal s m a b
+-- > update = loop $ second (delay initialValue) >>> Signal s m (a,c) (b,c)
+--
+-- The @c@ in this particular signal is @dP@, the velocity vector. I
+-- apologize that I cannot explain this more thoroughly, but since it
+-- is pure functional programming, if it works in one place, it should
+-- work in other places. I will do further tutorials once I grasp the
+-- essentials of 'fix', 'rec', and 'loop'.
 
-
+-- | The signal of position in a boundary
 sUpdateBoundedPosition :: (Monad m, MonadFix m, HasTime t s) =>
                           Point V2 Double -- ^ Initial position
                        -> V2 Double -- ^ Velocity vector
@@ -573,11 +600,24 @@ sUpdateBoundedPosition (P vp0) dP0 b@(V2 w h) =
     f (P (V2 x y)) (V2 dx dy) = V2 (g w x dx) (g h y dy)
     -- | Flips @du@ if @u@ is out of bounds and is diverging
     g uM u du
-      | (u <= 0 && du < 0) || (u >= uM && du > 0)) = -du
+      | (u <= 0.0 && du < 0.0) || (u >= fromIntegral uM && du > 0) = -du
       | otherwise = du
-  in loop $ proc (_, dP) -> do
-    dP' <- mkId <-- oneShot dP0 -< dP
+  in loop $ second (delay dP0) >>> proc (_, dP) -> do
     -- v Integrate as usual
-    vp' <- integrate vp0 dPos -< dP'
-    
-    returnA -< (P vp', dP') -- Placeholder
+    vp' <- integrate vp0 dPos -< dP
+    let dP' = f (P vp') dP
+    returnA -< (P vp', dP') 
+
+-- | Testing 'sUpdateBoundedPosition'
+testUBP :: IO ()
+testUBP = runBox clockSession_ b
+    where
+      p0 = P $ V2 0.0 0.0
+      dP0 = V2 1.0 2.0
+      bound = V2 1 3
+      b = proc _ -> do
+        p' <- sUpdateBoundedPosition p0 dP0 bound -< ()
+        mkKleisli_ putStr -< show p' ++ "\r"
+        returnA -< ()
+        
+

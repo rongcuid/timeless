@@ -149,6 +149,7 @@ stepSignal s@(SGen f) ds mx = f ds mx
     let (x, y) = (f x', g y')
     in x `seq` (x, y)
 
+-- | Left strict tuple
 lstrict :: (a,b) -> (a,b)
 lstrict (x,y) = x `seq` (x,y)
 

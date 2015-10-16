@@ -9,6 +9,7 @@
 
 module FRP.Timeless.Tutorial2
        (
+         -- * Warning: This tutorial is partially finished
        -- * Introduction
        -- $Introduction
 

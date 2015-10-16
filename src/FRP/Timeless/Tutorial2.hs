@@ -45,6 +45,10 @@ module FRP.Timeless.Tutorial2
        , sUpdatePlayer
        , toPlayerEvent
        , testPlayer2
+         
+       -- ** Firing Bullets
+       -- $GameState-Bullets
+       , Bullet(..)
        )
        where
 
@@ -60,15 +64,25 @@ import qualified Debug.Trace as D
 -- $Introduction
 --
 -- In this tutorial, we are going to use the framework
--- "FRP.Timeless.Framework.Console" to build a small console game, "SpHase
--- Invadors"!
+-- "FRP.Timeless.Framework.Console" to build a small console game,
+-- "SpHase Invadoors"!
 --
 -- The console framework is based on "System.Console.ANSI", so make
 -- sure you have that installed.
 --
 -- Also, as a prerequisite, please read tutorial 1 in module
--- "FRP.Timeless.Tutorial". Sorry that I did not expect Haddock doesn't work as
--- I expected with Literate Haskell, so please read the source of that instead.
+-- "FRP.Timeless.Tutorial". Sorry that I did not expect Haddock
+-- doesn't work as I expected with Literate Haskell, so please read
+-- the source of that instead.
+--
+-- Just a warning, this tutorial is written as a guide for my
+-- development. Therefore, it is the case that @timeless@ will be much
+-- more extensive at the end of the tutorial than it is at the
+-- beginning. Also, my understanding of the problem will change as I
+-- write this tutorial, so expect some style difference in the code,
+-- and probably quite a few wrappers to adapt older code to newer
+-- ones. Nevertheless, these wrappers and adapters should show
+-- multiple ways how a @timeless@ program can be structured.
 
 
 -- $IO
@@ -395,8 +409,9 @@ testEnemy = runBox clockSession_ b
 -- resembles an impulse function, which produces an output for a
 -- semantically infinitely short periods of time. The signal reads
 -- very straightforward: When input is 'False', output 'False'; once
--- input becomes 'True', output 'True' for one shot, then output
--- 'False' regardless of input for 0.25 seconds, then reset.
+-- input becomes 'True'(Fire key is pressed), output 'True' for one
+-- shot, then stay 'False' regardless of input for 0.25 seconds, then
+-- reset.
 
 data Player = Player {
       playerPos :: Point V2 Int -- ^ Position
@@ -427,7 +442,10 @@ sToFire = arr f
 
 -- | The logic signal to handle fire and cooldown
 sFire :: (HasTime t s, Monad m) => Signal s m Bool Bool
-sFire = (Nothing <=> Just False) --> oneShot True --> (pure False >>> wait 0.25) --> sFire
+sFire = (Nothing <=> Just False)
+        --> oneShot True
+        --> waitWith False 0.25
+        --> sFire
 
 -- | The signal to update player
 sUpdatePlayer :: (Monad m, HasTime t s) =>
@@ -461,3 +479,53 @@ testPlayer2 = runBox clockSession_ b
         pl' <- sUpdatePlayer pl0 -< pe
         mkKleisli_ putStr -< show pl' ++ "\r"
         returnA -< ()
+
+
+-- $GameState-Bullets
+-- 
+-- After properly handling fire interval, we know that we have a logic
+-- signal that denotes the status of firing. To actually fire a
+-- bullet, we need some dynamic switching.
+--
+-- First, we need 'Bullet' and 'BulletEvent' types. Since there are no
+-- fancy special bullets here, we only need two internal states:
+-- position and velocity. For this simple game, the only thing can be
+-- done to a bullet is destroying. Similar to enemies, bullets has its
+-- own system on velocity and position. Therefore, we are going to use
+-- the 'integrate' signal and 'dPos' again. See 'sUpdateBullet' for
+-- details. It looks basically like 'sUpdateEnemy0', so it is not hard
+-- to grasp. Actually, it is perfectly fine to write a general version
+-- like @sUpdateObject@ and write data class about destructable or
+-- movable objects, but I won't go as far since the bullet will be the
+-- only object with this implementation. That is why the previous
+-- function is called 'sUpdateEnemy0': it will be replaced by another
+-- implementation.
+
+data Bullet = Bullet {
+      bulletPos :: Point V2 Int
+    , bulletVel :: V2 Int
+    , bulletIsDestroyed :: Bool
+    }
+
+instance Show Bullet where
+  show b = "[Bullet] Pos: "
+           ++ show (x, y)
+           ++ " Velocity: "
+           ++ show (dx, dy)
+      where
+        P (V2 x y) = bulletPos b
+        V2 dx dy = bulletVel b
+
+data BulletEvent = BDestroy | BNoevent
+
+sUpdateBullet :: (Monad m, HasTime t s) =>
+                 Bullet
+              -> Signal s m BulletEvent Bullet
+sUpdateBullet b0 =
+  let P p0 = fromIntegral <$> bulletPos b0
+      dP0 = fromIntegral <$> bulletVel b0
+  in proc ev -> do
+    p' <- integrate p0 dPos -< dP0
+    iP' <- arr (fmap round) -< p'
+    d' <- latchS <<< arr (\case {BDestroy -> True; _ -> False}) -< ev
+    returnA -< b0 {bulletPos = P iP', bulletIsDestroyed = d'}

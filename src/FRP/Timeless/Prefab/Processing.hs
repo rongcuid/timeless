@@ -11,6 +11,7 @@ module FRP.Timeless.Prefab.Processing
     , integrateM
     , integrate
     , wait
+    , waitWith
     , (<=>)
     , unless'
     , when'
@@ -71,6 +72,10 @@ wait t =
         let dt = realToFrac $ dtime ds in
         if | t < 0 -> (Nothing, mkEmpty)
            | otherwise -> (Just a, wait $ t - dt)
+
+-- | Wait with a constant output
+waitWith :: (HasTime t s, Monad m) => b -> Double -> Signal s m a b
+waitWith b t = pure b >>> wait t
 
 -- | A signal that outputs left side when input is True, and right
 -- side when input is False

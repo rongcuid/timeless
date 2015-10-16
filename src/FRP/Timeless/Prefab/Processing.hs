@@ -86,24 +86,20 @@ waitWith b t = pure b >>> wait t
 mb1 <=> mb2 = mkPureN $ \case
             True -> (mb1, mb1 <=> mb2)
             False -> (mb2, mb1 <=> mb2)
-infix 2 <=>
+infix 3 <=>
 
--- | A signal that outputs @b@ but inhibits when input satisfies condition.
+-- | A signal that acts like identity but inhibits when input satisfies condition.
 unless' :: Monad m =>
-           b -- ^ Active output
-        -> Bool -- ^ Inhibit condition
-        -> Signal s m Bool b
-b `unless'` pred = mkPureN $ \p ->
-                  if | pred /= p -> (Just b, b `unless'` pred)
-                     | otherwise -> (Nothing, b `unless'` pred)
-infix 2 `unless'`
+           (a -> Bool) -- ^ Inhibit condition
+        -> Signal s m a a
+unless' pred = mkPureN $ \a ->
+               if | pred a -> (Just a, unless' pred)
+                  | otherwise -> (Nothing, unless' pred)
 
--- | A signal that inhibits but outputs @b@ when input satisfies condition.
+-- | A signal that inhibits but acts like identity when input satisfies condition.
 when' :: Monad m =>
-           b -- ^ Active output
-        -> Bool -- ^ Activate condition
-        -> Signal s m Bool b
-b `when'` pred = mkPureN $ \p ->
-                  if | pred == p -> (Just b, b `when'` pred)
-                     | otherwise -> (Nothing, b `when'` pred)
-infix 2 `when'`
+         (a -> Bool) -- ^ Activate condition
+      -> Signal s m a a
+when' pred = mkPureN $ \a ->
+        if | pred a -> (Just a, when' pred)
+           | otherwise -> (Nothing, when' pred)

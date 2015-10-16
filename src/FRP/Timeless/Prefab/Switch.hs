@@ -17,7 +17,7 @@ import FRP.Timeless.Signal
 import FRP.Timeless.Session
 import FRP.Timeless.Prefab.Primitive
 
--- | Switches to the second signal after the first one inhibits, and
+-- | Immediately switches to the second signal after the first one inhibits, and
 -- never switch back. Second signal is untouched until first signal
 -- inhibits
 (-->) :: (Monad m) =>
@@ -30,7 +30,7 @@ s1 --> s2 =
       case mb of
         Just _ -> return (mb, s1' --> s2)
         Nothing -> stepSignal s2 ds ma
-infixr 1 -->
+infixr 2 -->
 
 -- | The flipped (-->)
 (<--) :: (Monad m) =>
@@ -38,9 +38,9 @@ infixr 1 -->
       -> Signal s m a b
       -> Signal s m a b
 s1 <-- s2 = s2 --> s1
-infixl 1 <--
+infixl 2 <--
 
--- | Switches to the second signal when it starts to produce
+-- | Immediately switches to the second signal when it starts to produce
 -- output, and never switches back. First signal is untouched after
 -- second starts producing
 (--<) :: (Monad m) =>
@@ -55,7 +55,7 @@ s1 --< s2 =
                  (mb1, s1') <- stepSignal s1 ds ma 
                  return (mb1, s1' --< s2')
         Just _ -> return (mb2, s2')
-infixl 1 --<
+infixl 2 --<
 
 -- | The flipped (--<)
 (>--) :: (Monad m) =>
@@ -63,4 +63,4 @@ infixl 1 --<
       -> Signal s m a b
       -> Signal s m a b
 s1 >-- s2 = s2 --< s1
-infixr 1 >--
+infixr 2 >--

@@ -33,7 +33,7 @@ module FRP.Timeless.Tutorial2
        , Enemy(..)
        , dPos
        , sUpdateEnemy0
-       , testEnemy
+       , testEnemy0
 
        -- ** Player State, Again
        -- $GameState-Player2
@@ -56,9 +56,12 @@ module FRP.Timeless.Tutorial2
        -- $GameState-Enemy2
        , sUpdateBoundedPosition
        , testUBP
+       , sUpdateEnemy
+       , testEnemy
        )
        where
 
+import Prelude hiding ((.))
 import System.Console.ANSI
 import FRP.Timeless
 import FRP.Timeless.Framework.Console
@@ -216,7 +219,7 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 
 -- $GameState-Enemy
 --
--- As a foreword, run 'testEnemy' to see how enemy data is
+-- As a foreword, run 'testEnemy0' to see how enemy data is
 -- updated. Press 'k' (lower case, for simplicity) to kill the enemy
 --
 -- After getting a working player state, we are going to create the
@@ -300,7 +303,7 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 -- output in some way that forces evaluation (such as printing or
 -- pattern matching).
 --
--- The 'testEnemy' function is easy, too. We just takes input, create
+-- The 'testEnemy0' function is easy, too. We just takes input, create
 -- events out of them, feed the event to an enemy, and finally print
 -- the enemy. The print signal here is written in a way so that
 -- information will not flood the console.
@@ -363,8 +366,8 @@ sUpdateEnemy0 e0 =
     let e' = e0 {ePos = P iP', eAlive = a'}
     returnA -< e'
 
-testEnemy :: IO ()
-testEnemy = runBox clockSession_ b
+testEnemy0 :: IO ()
+testEnemy0 = runBox clockSession_ b
     where
       enemy = Enemy (P $ V2 1 1) (V2 1 1) 1 True
       b = proc _ -> do
@@ -587,9 +590,21 @@ sUpdateBullet b0 =
 -- is pure functional programming, if it works in one place, it should
 -- work in other places. I will do further tutorials once I grasp the
 -- essentials of 'fix', 'rec', and 'loop'.
+--
+-- Next, we are ready to integrate that into our enemy update signal,
+-- 'sUpdateEnemy'. The basic structure is the same, except that the
+-- style may have changed a little bit. Notice that there are less
+-- exposed details comparing to 'sUpdateEnemy0'. The most notable
+-- change is that the living status is no longer latched. Instead,
+-- when an enemy is dead, its signal is immediately inhibited. This
+-- change is to help preventing resorces from being used on dead
+-- enemies. Of course, if you want to revive them, it may still be
+-- necessary to use latches to keep a state.
+--
+-- Try 'testEnemy' now.
 
 -- | The signal of position in a boundary
-sUpdateBoundedPosition :: (Monad m, MonadFix m, HasTime t s) =>
+sUpdateBoundedPosition :: (MonadFix m, HasTime t s) =>
                           Point V2 Double -- ^ Initial position
                        -> V2 Double -- ^ Velocity vector
                        -> V2 Int -- ^ Boundary size
@@ -620,4 +635,36 @@ testUBP = runBox clockSession_ b
         mkKleisli_ putStr -< show p' ++ "\r"
         returnA -< ()
         
+sUpdateEnemy :: (MonadFix m, HasTime t s) =>
+                Enemy
+             -> V2 Int -- ^ Bound size
+             -> Signal s m EnemyEvent Enemy
+sUpdateEnemy e0 b =
+  let p0 = fromIntegral <$> ePos e0
+      -- ^ initial position
+      uP0 = eDir e0
+      -- ^ Direction vector
+      v = eSpeed e0
+      -- ^ Speed value
+      dP0 = (fromIntegral <$> uP0) * (pure v)
+      -- | Is it alive?
+      a0 = eAlive e0
+  in proc ev -> do
+    -- v Need to shift since the "origin" is at (1,1) when drawing
+    p' <- arr (+ (P $ V2 1 1)) <<< sUpdateBoundedPosition p0 dP0 b -< ()
+    -- v Notice that this time we use 'truncate'
+    iP' <- arr (fmap truncate) -< p'
+    a' <- arr (\case {EKill -> True; _ -> False}) -< ev
+    let e' = e0 {ePos = iP', eAlive = a'}
+    returnA <<< mkEmpty <-- when' eAlive -< e'
 
+testEnemy :: IO ()
+testEnemy = runBox clockSession_ b
+    where
+      enemy = Enemy (P $ V2 1 1) (V2 2 1) 1.5 True
+      b = proc _ -> do
+        mc <- sInput -< ()
+        ev <- arr (\case {Just 'k' -> EKill; _ -> ENoevent}) -< mc
+        e' <- sUpdateEnemy enemy (V2 2 2) -< ev
+        mkKleisli_ putStr -< show e' ++ "\r"
+        returnA -< ()

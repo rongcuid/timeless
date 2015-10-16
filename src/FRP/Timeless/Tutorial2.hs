@@ -58,6 +58,9 @@ module FRP.Timeless.Tutorial2
        , testUBP
        , sUpdateEnemy
        , testEnemy
+
+       -- * Dynamic Generating and Collision Handling
+       -- $DGCH
        )
        where
 
@@ -496,7 +499,7 @@ testPlayer2 = runBox clockSession_ b
 -- 
 -- After properly handling fire interval, we know that we have a logic
 -- signal that denotes the status of firing. To actually fire a
--- bullet, we need some dynamic switching, so we will test this
+-- bullet, we need some dynamic generating, so we will test this
 -- section later when we have written collision handling.
 --
 -- First, we need 'Bullet' and 'BulletEvent' types. Since there are no
@@ -634,7 +637,8 @@ testUBP = runBox clockSession_ b
         p' <- sUpdateBoundedPosition p0 dP0 bound -< ()
         mkKleisli_ putStr -< show p' ++ "\r"
         returnA -< ()
-        
+
+-- | The signal to update an enemy
 sUpdateEnemy :: (MonadFix m, HasTime t s) =>
                 Enemy
              -> V2 Int -- ^ Bound size
@@ -668,3 +672,7 @@ testEnemy = runBox clockSession_ b
         e' <- sUpdateEnemy enemy (V2 2 2) -< ev
         mkKleisli_ putStr -< show e' ++ "\r"
         returnA -< ()
+
+-- $DGCH
+--
+-- 

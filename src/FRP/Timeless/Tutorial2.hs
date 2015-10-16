@@ -62,6 +62,7 @@ import FRP.Timeless
 import FRP.Timeless.Framework.Console
 import Data.Char
 import Data.Monoid
+import Control.Monad.Fix
 import Linear
 import Linear.Affine
 import qualified Debug.Trace as D
@@ -561,10 +562,22 @@ sUpdateBullet b0 =
 -- its state using the implicit time parameter.
 
 
-sUpdateBoundedPosition :: (Monad m, HasTime t s) =>
-                          Point V2 Double
-                       -> V2 Double
+sUpdateBoundedPosition :: (Monad m, MonadFix m, HasTime t s) =>
+                          Point V2 Double -- ^ Initial position
+                       -> V2 Double -- ^ Velocity vector
+                       -> V2 Int -- ^ Boundary size
                        -> Signal s m a (Point V2 Double)
-sUpdateBoundedPosition p0 dP0 =
-  proc _ -> do
-    returnA -< p0 -- Placeholder
+sUpdateBoundedPosition (P vp0) dP0 b@(V2 w h) =
+  let
+    -- | Gets new velocity vector from position and velocity
+    f (P (V2 x y)) (V2 dx dy) = V2 (g w x dx) (g h y dy)
+    -- | Flips @du@ if @u@ is out of bounds and is diverging
+    g uM u du
+      | (u <= 0 && du < 0) || (u >= uM && du > 0)) = -du
+      | otherwise = du
+  in loop $ proc (_, dP) -> do
+    dP' <- mkId <-- oneShot dP0 -< dP
+    -- v Integrate as usual
+    vp' <- integrate vp0 dPos -< dP'
+    
+    returnA -< (P vp', dP') -- Placeholder

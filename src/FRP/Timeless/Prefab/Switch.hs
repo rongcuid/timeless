@@ -32,6 +32,14 @@ s1 --> s2 =
         Nothing -> stepSignal s2 ds ma
 infixr 1 -->
 
+-- | The flipped (-->)
+(<--) :: (Monad m) =>
+         Signal s m a b
+      -> Signal s m a b
+      -> Signal s m a b
+s1 <-- s2 = s2 --> s1
+infixl 1 <--
+
 -- | Switches to the second signal when it starts to produce
 -- output, and never switches back. First signal is untouched after
 -- second starts producing
@@ -49,3 +57,10 @@ s1 --< s2 =
         Just _ -> return (mb2, s2')
 infixl 1 --<
 
+-- | The flipped (--<)
+(>--) :: (Monad m) =>
+         Signal s m a b
+      -> Signal s m a b
+      -> Signal s m a b
+s1 >-- s2 = s2 --< s1
+infixr 1 >--

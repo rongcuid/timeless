@@ -1,4 +1,6 @@
-This file will be literate Haskell in Markdown format, and should compile directly using a recent version of GHC.
+# Notice 2015-10-17
+
+I will pause this for a little while to read a book about Lambda Calculus, and play with some FPGAs. Hopefully it will not take too long. Actually, now `timeless` already has enough functionality to do many interesting things. What it lacks are some more useful FRP combinators. It is likely that I will come back in a week or so
 
 # Introduction
 

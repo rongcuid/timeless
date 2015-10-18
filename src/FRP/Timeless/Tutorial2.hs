@@ -169,7 +169,7 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
 -- $GameState-Player
 -- 
 -- Next, we are going to make something complicated. Considering that
--- this is a _game_, we don't want the objects to move
+-- this is a __game__, we don't want the objects to move
 -- unevenly. At the same time, we want to give the ability to 'cooldown'.
 --
 -- Before all that, let's look at the central game states. Player first!
@@ -239,7 +239,7 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
 -- to create this signal from some small and reusable ones. Check the
 -- source to have a glance. I will explain each part.
 --
--- First, let's handle the position update. "Physically", the position
+-- First, let's handle the position update. /Physically/, the position
 -- is just the integral of velocity over time. Note that although
 -- enemies can only occupy integer positions, internally we can keep
 -- fractional positions. Therefore, we use the following prefab signal:
@@ -418,11 +418,11 @@ testEnemy0 = runBox clockSession_ b
 --
 -- > sFire = (Nothing <=> Just False) --> oneShot True --> (pure False >>> wait 0.25) --> sFire
 --
--- '(<=>)' is a convenient signal that takes 'Bool' as input, and
+-- '(\<=\>)' is a convenient signal that takes 'Bool' as input, and
 -- outputs the left value when 'True' and right value when
 -- 'False'. Remember that 'Nothing' denotes inhibition. 'oneShot'
 -- resembles an impulse function, which produces an output for a
--- semantically infinitely short periods of time. The signal reads
+-- semantically infinitely short period of time. The signal reads
 -- very straightforward: When input is 'False', output 'False'; once
 -- input becomes 'True'(Fire key is pressed), output 'True' for one
 -- shot, then stay 'False' regardless of input for 0.25 seconds, then
@@ -601,7 +601,7 @@ sUpdateBullet b0 =
 -- exposed details comparing to 'sUpdateEnemy0'. The most notable
 -- change is that the living status is no longer latched. Instead,
 -- when an enemy is dead, its signal is immediately inhibited. This
--- change is to help preventing resorces from being used on dead
+-- change is to help preventing resources from being used on dead
 -- enemies. Of course, if you want to revive them, it may still be
 -- necessary to use latches to keep a state.
 --

@@ -1,6 +1,4 @@
-> -- | Sorry, I thought haddock will process LHS automatically, but
-> -- apparently it does not
-> --
+> -- |
 > -- Module:     FRP.Timeless.Tutorial
 > -- Copyright:  (c) 2015 Rongcui Dong
 > -- License:    BSD3

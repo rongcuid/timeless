@@ -99,8 +99,10 @@ import qualified Debug.Trace as D
 -- screen. I know some solutions, but it changes quite a bit of this
 -- program, and I don't want to spend too much time on Console
 -- framework since my main goal is to make something work under SDL,
--- gtk, etc. However, this tutorial is still a good reference on how
--- to implement things in @timeless@.
+-- gtk, etc. Also, since I have changed the program structure quite a
+-- bit, there might be some minor mismatch in the
+-- explanation. However, this tutorial is still a good reference on
+-- how to implement things in @timeless@.
 --
 -- Maybe I should plan the control flow on paper first, like when I
 -- started learning imperative language, or when I started with
@@ -729,6 +731,26 @@ testEnemy = runBox clockSession_ b
 -- collision handling. For simplicity, our game will have only one
 -- enemy (if one enemy is handled correctly, it is easy to expand).
 --
+-- Notice that, although @timeless@ support dynamic switching, the
+-- structure of program is determined at compile time. For example,
+-- you cannot create a dynamic list of 'Signal's, and feed a value
+-- into every one of them, and get all their results. The /type/ of a
+-- Signal is determined at compile time --- However, you can freely
+-- switch a Signal with another with the same type. Of course, not all
+-- Signal's support this. In fact, since dynamic switching is not yet
+-- needed in this tutorial, I have not implemented higher order
+-- signals and dynamic switching yet.
+--
+-- Read the source for an insight. It should not be too hard to follow
+-- (despite the bugs on rendering I mentioned before).
+--
+-- Finally, run 'main' to test it out!
+--
+-- P.S After writing a few 'loop' magics, I now start to get how to
+-- use it (not how it works). Basically, the magic is that you can
+-- treat it as an Arrow recursion, and the initial value is fed in by
+-- the 'delay' Signal. I will write a separate tutorial just on that
+-- topic.
 
 sDrawEnemies :: ColorIntensity -> Color -> Signal s IO [Enemy] ()
 sDrawEnemies i c = arr (map $ (\(P v) -> v) . ePos)
@@ -762,6 +784,7 @@ bulletIsOutOfBound bound@(V2 r _) b@(Bullet (P (V2 _ y)) _) = y < 0
 collides :: Bullet -> Enemy -> Bool
 collides b e = (round <$> bulletVec b) == ePos e
 
+-- | Steps position of a list of bullets
 sBulletStep :: (Monad m, HasTime t s) =>
                  Signal s m [Bullet] [Bullet]
 sBulletStep = mkSF $ \ds bs ->
@@ -774,6 +797,7 @@ sBulletStep = mkSF $ \ds bs ->
           vP' = bulletVec b + (P $ v * dt)
       in b {bulletVec=vP'}
 
+-- | Logic of bullet updating
 sBullets :: (MonadFix m, HasTime t s) =>
             [Bullet] -- ^ Initial list of bullets
             -> V2 Int -- ^ Boundary size
@@ -809,6 +833,7 @@ sDrawPlayer = proc pl -> do
 updateEnemies :: [Enemy] -> [Enemy] -> [Enemy]
 updateEnemies es kill = filter (\e -> not (e `elem` kill)) es
 
+-- | Combines logic of Bullets and Enemies
 sBulletEnemies :: (MonadFix m, HasTime t s) =>
                   [Enemy]
                -> V2 Int -- ^ Boundary Size

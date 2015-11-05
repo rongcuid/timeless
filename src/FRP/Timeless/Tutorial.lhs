@@ -308,10 +308,10 @@ not involve `IO`.
 Then, to display the name properly, we need to reverse it:
 
 > sReverse :: (Monad m) => Signal s m String String
-> sReverse = mkPW_ reverse
+> sReverse = mkSF_ reverse
 
-`mkPW_` ("make pure wire") creates a pure, stateless, wire, from a
-function. Note that `arr` also works for this purpose.
+`mkSF_` ("make signal function") creates a pure, stateless, signal,
+from a function. Note that `arr` also works for this purpose.
 
 Now, make an output signal that prints string, always on the same line:
 

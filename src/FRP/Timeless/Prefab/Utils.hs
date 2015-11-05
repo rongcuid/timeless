@@ -36,12 +36,12 @@ timeF = fmap realToFrac time
 
 timeFrom :: (HasTime t s) => t -> Signal s m a t
 timeFrom t' =
-    mkPW $ \ds _ ->
+    mkSF $ \ds _ ->
         let t = t' + dtime ds
         in lstrict (t, timeFrom t)
 
 
 -- | A signal for easy debugging in arrow environment
 sDebug :: (MonadIO m) => Signal s m String ()
-sDebug = mkKleisli_ $ \s -> liftIO $ putStrLn s
+sDebug = mkKleisli_ $ \s -> liftIO $ putStr s
       

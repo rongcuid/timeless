@@ -33,13 +33,13 @@ import qualified Debug.Trace as D
 -- | Takes a sample of second input when the first input becomes
 -- True. First snapshot taken at local time 0, i.e. on construction
 sample :: (Monad m) => Signal s m (Bool, a) a
-sample = mkPWN f
+sample = mkSFN f
     where
       -- | First snapshot taken on local time 0 (On construction)
-      f (_, a) = (a, mkPWN $ f' a)
+      f (_, a) = (a, mkSFN $ f' a)
       -- | Later snapshots taken when predicate becomes true
-      f' a (False, _) = (a, mkPWN $ f' a)
-      f' a (True, a') = (a', mkPWN $ f' a')
+      f' a (False, _) = (a, mkSFN $ f' a)
+      f' a (True, a') = (a', mkSFN $ f' a')
 
 -- | Alias for 'sample'. Snapshot sounds more discrete
 snapshot :: (Monad m) => Signal s m (Bool, a) a
@@ -51,11 +51,11 @@ integrateM :: (Monad m, Monoid b, HasTime t s) =>
                  -> (s -> a -> b)
                  -- ^ The model, such as /dX/. 's' is delta session
                  -> Signal s m a b
-integrateM b0 f = mkPW $ g b0
+integrateM b0 f = mkSF $ g b0
     where
       g b0 ds a = let db = f ds a
                       b1 = b0 <> db
-                  in (b1, mkPW $ g b1)
+                  in (b1, mkSF $ g b1)
 
 -- | A numerical integration signal.
 integrate :: (Monad m, Num a, HasTime t s) =>
@@ -103,3 +103,4 @@ when' :: Monad m =>
 when' pred = mkPureN $ \a ->
         if | pred a -> (Just a, when' pred)
            | otherwise -> (Nothing, when' pred)
+

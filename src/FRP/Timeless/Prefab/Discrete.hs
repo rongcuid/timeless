@@ -85,7 +85,7 @@ runAndHold sig = inhibitsAfterPeriods 1 >>> sig >>> snapOnce
 rising :: (Monad m) =>
           Bool -- ^ Initial value
        -> Signal s m Bool Bool
-rising b0 = mkPWN $ f b0
+rising b0 = mkSFN $ f b0
     where
       f False b = (b, rising b)
       f True b = (False, rising b)
@@ -94,7 +94,7 @@ rising b0 = mkPWN $ f b0
 falling :: (Monad m) =>
           Bool -- ^ Initial value
        -> Signal s m Bool Bool
-falling b0 = mkPWN $ f b0
+falling b0 = mkSFN $ f b0
     where
       f False b = (False, rising b)
       f True b = (not b, rising b)
@@ -113,7 +113,7 @@ edge b0 = proc b -> do
 latch :: (Monad m) =>
          Bool -- ^ Initial value
       -> Signal s m (Bool, Bool) Bool
-latch b0 = mkPWN $ f b0
+latch b0 = mkSFN $ f b0
     where
       f False (True, False) = (True, latch True)
       f True (False, True) = (False, latch False)

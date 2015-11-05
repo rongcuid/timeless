@@ -6,30 +6,31 @@
 
 {-# LANGUAGE Arrows #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module FRP.Timeless.Tutorial2
        (
          -- * Warning: This tutorial is partially finished
-       -- * Introduction
-       -- $Introduction
+         -- * Introduction
+         -- $Introduction
 
-       -- * Input/Output
-       -- $IO
-       sInput
-       , drawPlayer
+         -- * Input/Output
+         -- $IO
+         sInput
+       , drawPlayerAt
        , testIO
          
-       -- * Game State
-       -- ** Player State
-       -- $GameState-Player
+         -- * Game State
+         -- ** Player State
+         -- $GameState-Player
        , Move(..)
        , updatePosX
        , sPlayerX
        , toMove
        , testPlayer
          
-       -- ** Enemy State
-       -- $GameState-Enemy
+         -- ** Enemy State
+         -- $GameState-Enemy
        , EnemyEvent(..)
        , Enemy(..)
        , dPos
@@ -41,7 +42,7 @@ module FRP.Timeless.Tutorial2
        , Player(..)
        , PlayerEvent(..)
        , updatePosX'
-       , sToFire
+       , sToFireSig
        , sFire
        , sUpdatePlayer
        , toPlayerEvent
@@ -50,8 +51,6 @@ module FRP.Timeless.Tutorial2
        -- ** Firing Bullets
        -- $GameState-Bullets
        , Bullet(..)
-       , BulletEvent(..)
-       , sUpdateBullet
 
        -- ** Enemy State, Again
        -- $GameState-Enemy2
@@ -119,7 +118,7 @@ import qualified Debug.Trace as D
 -- We will implement a function to draw the player spaceship, which is
 -- just a charcter @^@ on the bottom line. Making use of the
 -- 'drawChar' function provided, we can easily create a signal
--- 'drawPlayer' (read the source), which takes the column number and
+-- 'drawPlayerAt' (read the source), which takes the column number and
 -- draws the player. However, if we just implement by clearing a line
 -- and drawing a new character, serious flicker will
 -- appear. Therefore, we implement a stateful version that keeps track
@@ -140,8 +139,8 @@ import qualified Debug.Trace as D
 sInput = sInputNonBlocking
 
 -- | Draws a vivid white @^@ on the bottom line, and deals with flickering
-drawPlayer :: Int -> Int -> IO Int
-drawPlayer c c'
+drawPlayerAt :: Int -> Int -> IO Int
+drawPlayerAt c c'
     | c /= c' =
       do
         -- v Clear line
@@ -163,7 +162,7 @@ testIO = initConsole defaultInitConfig >> runBox clockSession_ b
       b = proc _ -> do
         mc <- sInput -< ()
         x <- (arr fBound) <<< (mkSW_ 30 fMove) -< mc
-        mkSK_ (-1) drawPlayer -< x
+        mkSK_ (-1) drawPlayerAt -< x
         returnA -< ()
 
 -- $GameState-Player
@@ -218,7 +217,7 @@ testPlayer = initConsole defaultInitConfig >> runBox clockSession_ b
         mc <- sInput -< ()
         mv <- arr toMove -< mc
         x <- sPlayerX -< mv
-        mkSK_ (-1) drawPlayer -< x
+        mkSK_ (-1) drawPlayerAt -< x
         returnA -< ()
 
 -- $GameState-Enemy
@@ -449,8 +448,8 @@ updatePosX' x PMoveR = updatePosX x MRight
 updatePosX' x _ = updatePosX x MStay
 
 -- | Interface 'PlayerEvent' to logic signal
-sToFire :: Monad m => Signal s m PlayerEvent Bool
-sToFire = arr f
+sToFireSig :: Monad m => Signal s m PlayerEvent Bool
+sToFireSig = arr f
     where
       f PFire = True
       f _ = False
@@ -473,7 +472,7 @@ sUpdatePlayer pl0 =
     -- v Get X coordinate from event
     x' <- mkSW_ x0 updatePosX' -< ev
     -- v Fire bullets
-    firing <- sFire <<< sToFire -< ev
+    firing <- sFire <<< sToFireSig -< ev
     returnA -< pl0 {playerPos = (P $ V2 x' y0), playerFiring = firing}
 
 -- | Converts a raw input to a 'PlayerEvent'
@@ -517,11 +516,11 @@ testPlayer2 = runBox clockSession_ b
 -- function is called 'sUpdateEnemy0': it will be replaced by another
 -- implementation.
 
-data Bullet = Bullet {
-      bulletPos :: Point V2 Int
-    , bulletVel :: V2 Int
-    , bulletIsDestroyed :: Bool
-    }
+data Bullet = Bullet
+              {
+                bulletVec :: Point V2 Double
+              , bulletVel :: V2 Double
+              }
 
 instance Show Bullet where
   show b = "[Bullet] Pos: "
@@ -529,22 +528,24 @@ instance Show Bullet where
            ++ " Velocity: "
            ++ show (dx, dy)
       where
-        P (V2 x y) = bulletPos b
+        P (V2 x y) = bulletVec b
         V2 dx dy = bulletVel b
 
-data BulletEvent = BDestroy | BNoevent
+--type BulletLogic = (Monad m, HasTime t s) => Signal s m [Enemy] (Bullet, [Enemy])
 
-sUpdateBullet :: (Monad m, HasTime t s) =>
-                 Bullet
-              -> Signal s m BulletEvent Bullet
-sUpdateBullet b0 =
-  let P p0 = fromIntegral <$> bulletPos b0
-      dP0 = fromIntegral <$> bulletVel b0
-  in proc ev -> do
-    p' <- integrate p0 dPos -< dP0
-    iP' <- arr (fmap round) -< p'
-    d' <- latchS <<< arr (\case {BDestroy -> True; _ -> False}) -< ev
-    returnA -< b0 {bulletPos = P iP', bulletIsDestroyed = d'}
+-- sBulletLogic :: (Monad m, HasTime t s) =>
+--                 V2 Int
+--              -> Bullet
+--              -> BulletLogic
+-- sBulletLogic b0 =
+--   let P p0 = fromIntegral <$> bulletPos b0
+--       dP0 = fromIntegral <$> bulletVel b0
+--       checkCollision p es = filter (\e -> p `collides` e) es
+--   in proc es -> do
+--     p' <- integrate p0 dPos -< dP0
+--     iP' <- arr (fmap round) -< p'
+--     (d', ecs) <- first latchS <<< arr checkCollision -< es
+--     returnA -< (b0 {bulletPos = P iP', bulletIsDestroyed = d'}, ecs)
 
 
 -- $GameState-Enemy2
@@ -661,7 +662,7 @@ sUpdateEnemy e0 b =
     iP' <- arr (fmap truncate) -< p'
     a' <- arr (\case {EKill -> True; _ -> False}) -< ev
     let e' = e0 {ePos = iP', eAlive = a'}
-    returnA <<< mkEmpty <-- when' eAlive -< e'
+    returnA <<< (mkEmpty <-- when' eAlive) -< e'
 
 testEnemy :: IO ()
 testEnemy = runBox clockSession_ b
@@ -676,4 +677,85 @@ testEnemy = runBox clockSession_ b
 
 -- $DGCH
 --
--- 
+-- In this part, we are implementing a dynamic generating and
+-- collision handling. For simplicity, our game will have only one
+-- enemy (if one enemy is handled correctly, it is easy to expand).
+
+-- fireBullet :: (Monad m, HasTime t s) => 
+--              Point V2 Int -- ^ Spawn at position 
+--            -> V2 Int -- ^ Velocity
+--            -> Bool -- ^ Really fire?
+--            -> [Signal s m BulletEvent Bullet] -- ^ Old list of Bullet logics
+--            -> [Signal s m BulletEvent Bullet]
+-- fireBullet p v False bs = bs
+-- fireBullet p v True bs = let b = Bullet p v False in (sBulletLogic b):bs
+
+drawBullet :: ColorIntensity -> Color -> Bullet -> IO ()
+drawBullet i c b = let (P (V2 x y)) = round <$> bulletVec b
+                       (r',c') = (y,x)
+                   in do
+  drawChar '.' r' c' i c
+
+spawnBullet :: (V2 Double, Bool, [Bullet])
+            -> [Bullet]
+spawnBullet (V2 x y, True, bs) = (Bullet (P $ V2 x y) (V2 0 (-1))):bs
+spawnBullet (V2 x y, False, bs) = bs
+
+bulletIsOutOfBound :: V2 Int -- ^ Boundary
+                   -> Bullet -> Bool
+bulletIsOutOfBound bound@(V2 r _) b@(Bullet (P (V2 _ y)) _) = y < 0 
+
+collides :: Bullet -> Enemy -> Bool
+collides b e = (round <$> bulletVec b) == ePos e
+
+sBulletStep :: (Monad m, HasTime t s) =>
+                 Signal s m [Bullet] [Bullet]
+sBulletStep = mkSF $ \ds bs ->
+  (map (stepBullet ds) bs, sBulletStep)
+  where
+    stepBullet ds b =
+      let v = bulletVel b
+          dt = realToFrac $ dtime ds
+          vP' :: Point V2 Double
+          vP' = bulletVec b + (P $ v * dt)
+      in b {bulletVec=vP'}
+
+sBullets :: (MonadFix m, HasTime t s) =>
+            [Bullet] -- ^ Initial list of bullets
+            -> V2 Int -- ^ Boundary size
+            -- | Takes in Player and Enemy list, returns a list of
+            -- bullets and destroyed enemies
+            -> Signal s m (Player, [Enemy]) ([Bullet], [Enemy])
+sBullets b0 size@(V2 xM yM) =
+  let
+    collidedEnemies :: ([Bullet], [Enemy]) -> ([Bullet], [Enemy])
+    collidedEnemies (bs, es) =
+      let
+        esD' :: [Enemy]
+        esD' = concat $ map (\b -> filter (collides b) es) bs
+        bs' = concat $ map (\e -> filter (\b -> not $ collides b e) bs) es
+      in (bs', esD')
+  in loop $ second (delay b0) >>> proc ((p, es), bs) -> do
+    let firing = playerFiring p
+        pos@(P (V2 x' y')) = playerPos p
+        (V2 x y) :: V2 Double = fromIntegral <$> V2 x' y'
+    -- v Spawn a new bullet if player is firing, and steps all bullets
+    bs' <- sBulletStep <<< (arr spawnBullet) -< (V2 x (y+1), firing, bs)
+    (bs'', esD) <- arr collidedEnemies -< (bs', es)
+    returnA -< ((bs'', esD), bs'')
+
+sDrawPlayer :: MonadIO m => Signal s m Player ()
+sDrawPlayer = proc pl -> do
+  let V2 x _ = playerPos pl
+  mkSK_ (-1) drawPlayerAt -< x
+  returnA -< ()
+
+testDynamic :: IO ()
+testDynamic = runBox clockSession_ b
+  where
+    pl0 = Player (P $ V2 30 28) False
+    size@(V2 x y) = V2 60 30
+    b = proc _ -> do
+      placeholder <- mkActM $ asciiBox x y Vivid Green -< ()
+      pl' <- sUpdatePlayer pl0 <<< arr toPlayerEvent <<< sInput -< placeholder
+      sDrawPlayer -< pl'

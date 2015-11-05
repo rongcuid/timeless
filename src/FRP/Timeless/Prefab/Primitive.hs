@@ -14,14 +14,13 @@ module FRP.Timeless.Prefab.Primitive
     , mkPure
     , mkGen
       -- * Pure Signals
-      -- ** Wires (Never inhibits by themselves)
-    , mkPW
-    , mkPWN
-    , mkPW_
-    , mkSW_
       -- ** Signals
     , mkPureN
     , mkPure_
+    , mkSF
+    , mkSFN
+    , mkSF_
+    , mkSW_
     -- * Monadic Signals
     , mkGenN
     , mkGen_
@@ -44,23 +43,23 @@ import Control.Monad.IO.Class
 
 import FRP.Timeless.Signal
 
--- | Make a pure stateful wire from given transition function
-mkPW :: (Monoid s) => (s -> a -> (b, Signal s m a b)) -> Signal s m a b
-mkPW f = mkPure (\ds -> lstrict . first (Just) . (f ds)) 
+-- | Make a pure stateful signal from given signal function
+mkSF :: (Monoid s) => (s -> a -> (b, Signal s m a b)) -> Signal s m a b
+mkSF f = mkPure (\ds -> lstrict . first (Just) . (f ds)) 
 -- first (Just) has type (a, b) -> (Maybe a, b)
 
--- | Make a pure stateful wire from given time independant transition function
-mkPWN :: (a -> (b, Signal s m a b)) -> Signal s m a b
-mkPWN f = mkPureN $ lstrict . first (Just) . f
+-- | Make a pure stateful signal from given time independant signal function
+mkSFN :: (a -> (b, Signal s m a b)) -> Signal s m a b
+mkSFN f = mkPureN $ lstrict . first (Just) . f
 
--- | Make a pure stateless wire from given function
-mkPW_ :: (a -> b) -> Signal s m a b
-mkPW_ = SArr . fmap
+-- | Make a pure stateless signal from given signal function
+mkSF_ :: (a -> b) -> Signal s m a b
+mkSF_ = SArr . fmap
 
 -- | Make a stateful wire from chained state transition
 -- function. Notice that the output will always be the new value
 mkSW_ :: b -> (b -> a -> b) -> Signal s m a b
-mkSW_ b0 f = mkPWN $ g b0
+mkSW_ b0 f = mkSFN $ g b0
     where
       g b0 x = let b1 = f b0 x in
                (b1, mkSW_ b1 f)
@@ -161,7 +160,7 @@ mkActM :: (Monad m) => m b -> Signal s m a b
 mkActM = mkConstM
 
 
--- | This wire delays its input signal by the smallest possible
+-- | (From @netwire@) This wire delays its input signal by the smallest possible
 -- (semantically infinitesimal) amount of time.  You can use it when you
 -- want to use feedback ('ArrowLoop'):  If the user of the feedback
 -- depends on /now/, delay the value before feeding it back.  The
@@ -169,4 +168,4 @@ mkActM = mkConstM
 --
 -- * Depends: before now.
 delay :: a -> Signal s m a a
-delay x' = mkPWN $ \x -> (x', delay x)
+delay x' = mkSFN $ \x -> (x', delay x)

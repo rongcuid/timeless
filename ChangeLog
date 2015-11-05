@@ -1,3 +1,7 @@
+2015-11-05  Rongcui Dong  <karl_1702@188.com>
+	* src/FRP/Timeless/Prefab/Primitive.hs: Renamed mkPW back to mkSF
+	* src/FRP/Timeless/Tutorial2.hs: Finished tutorial 2
+
 2015-10-16  Rongcui Dong  <karl_1702@188.com>
 	* Fixed ChangeLog
 	* Fixed haddock documentation

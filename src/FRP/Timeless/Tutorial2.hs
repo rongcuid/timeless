@@ -10,7 +10,9 @@
 
 module FRP.Timeless.Tutorial2
        (
-         -- * Warning: This tutorial is partially finished
+         -- * Warning
+         -- $Warning
+         
          -- * Introduction
          -- $Introduction
 
@@ -61,6 +63,17 @@ module FRP.Timeless.Tutorial2
 
        -- * Dynamic Generating and Collision Handling
        -- $DGCH
+       , sDrawEnemies
+       , sDrawBullets
+       , spawnBullet
+       , bulletIsOutOfBound
+       , collides
+       , sBulletStep
+       , sBullets
+       , sDrawPlayer
+       , updateEnemies
+       , sBulletEnemies
+       , main
        )
        where
 
@@ -73,7 +86,33 @@ import Data.Monoid
 import Control.Monad.Fix
 import Linear
 import Linear.Affine
+import Control.Monad.IO.Class
 import qualified Debug.Trace as D
+
+-- $Warning
+--
+-- This tutorial gets really messed up at the final part since the
+-- data structures used were not completely a good fit of the
+-- problem. It has currently some bugs, mainly related to
+-- rendering. Basically, the bullet and enemies do not disappear from
+-- screen after destroyed; random ANSI sequences pollutes the
+-- screen. I know some solutions, but it changes quite a bit of this
+-- program, and I don't want to spend too much time on Console
+-- framework since my main goal is to make something work under SDL,
+-- gtk, etc. However, this tutorial is still a good reference on how
+-- to implement things in @timeless@.
+--
+-- Maybe I should plan the control flow on paper first, like when I
+-- started learning imperative language, or when I started with
+-- functional languages, or when I started with Monads, since FRP is
+-- still not quite my native language yet.
+--
+-- P.S. The solutions are:
+-- 
+-- 1. Clear screen every frame, which flickers violently
+-- 
+-- 2. Use the "stateful draw", which basically requires me to
+-- rewrite the whole dynamic logic
 
 -- $Introduction
 --
@@ -127,7 +166,7 @@ import qualified Debug.Trace as D
 -- 'drawChar' is set to (-1) since it is an impossible value for a
 -- normal update, so the console is rendered correctly on the first
 -- "frame". A similar function provided in the framework is
--- 'drawCharS'
+-- 'drawCharS', and a signal 'sMoveChar'
 --
 -- Again, testing with @timeless@ is easy: Just connect a simple
 -- box. Here, the test function is `testIO`, where almost everything
@@ -320,7 +359,7 @@ data Enemy = Enemy {
     , eDir :: V2 Int -- ^ Direction vector
     , eSpeed :: Double -- ^ Speed, affecting update interval
     , eAlive :: Bool -- ^ Is it alive?
-    }
+    } deriving (Eq)
 
 instance Show Enemy where
   show e = "[Enemy] At: "
@@ -458,7 +497,7 @@ sToFireSig = arr f
 sFire :: (HasTime t s, Monad m) => Signal s m Bool Bool
 sFire = (Nothing <=> Just False)
         --> oneShot True
-        --> waitWith False 0.25
+        --> waitWith False 0.5
         --> sFire
 
 -- | The signal to update player
@@ -677,28 +716,43 @@ testEnemy = runBox clockSession_ b
 
 -- $DGCH
 --
+-- Warning: This is the part which corrupts the entire tutorial. I
+-- paused for two weeks before continuing the implementation, and when
+-- I came back, I made the mistake that I totally forgot about
+-- rendering problem (which I mentioned briefly in previous sections),
+-- and while I should keep the bullets/enemies alive for one more step
+-- just to remove them from screen, I did not make use of the boolean
+-- indicating whether the enemy/bullet is alive (totally forgot its
+-- purpose). However, another shot at the same place will clear the screen
+--
 -- In this part, we are implementing a dynamic generating and
 -- collision handling. For simplicity, our game will have only one
 -- enemy (if one enemy is handled correctly, it is easy to expand).
+--
 
--- fireBullet :: (Monad m, HasTime t s) => 
---              Point V2 Int -- ^ Spawn at position 
---            -> V2 Int -- ^ Velocity
---            -> Bool -- ^ Really fire?
---            -> [Signal s m BulletEvent Bullet] -- ^ Old list of Bullet logics
---            -> [Signal s m BulletEvent Bullet]
--- fireBullet p v False bs = bs
--- fireBullet p v True bs = let b = Bullet p v False in (sBulletLogic b):bs
+sDrawEnemies :: ColorIntensity -> Color -> Signal s IO [Enemy] ()
+sDrawEnemies i c = arr (map $ (\(P v) -> v) . ePos)
+                   >>>
+                   mkSK_ (repeat $ V2 0 0) draw
+                   >>> mkConstM (return ())
+  where
+    draw :: [V2 Int] -> [V2 Int] -> IO [V2 Int]
+    draw ps0 ps = do
+      (\(p0, p) -> drawCharS 'W' i c p0 p) `mapM` (zip ps0 ps) >> (return ps)
 
-drawBullet :: ColorIntensity -> Color -> Bullet -> IO ()
-drawBullet i c b = let (P (V2 x y)) = round <$> bulletVec b
-                       (r',c') = (y,x)
-                   in do
-  drawChar '.' r' c' i c
+sDrawBullets :: ColorIntensity -> Color -> Signal s IO [Bullet] ()
+sDrawBullets i c = arr (map $ fmap round . (\(P v) -> v) . bulletVec)
+                   >>>
+                   mkSK_ (repeat $ V2 0 0) draw
+                   >>> mkConstM (return ())
+  where
+    draw :: [V2 Int] -> [V2 Int] -> IO [V2 Int]
+    draw ps0 ps = do
+      (\(p0, p) -> drawCharS '.' i c p0 p) `mapM` (zip ps0 ps) >> (return ps)
 
 spawnBullet :: (V2 Double, Bool, [Bullet])
             -> [Bullet]
-spawnBullet (V2 x y, True, bs) = (Bullet (P $ V2 x y) (V2 0 (-1))):bs
+spawnBullet (V2 x y, True, bs) = (Bullet (P $ V2 x y) (V2 0 (-5))):bs
 spawnBullet (V2 x y, False, bs) = bs
 
 bulletIsOutOfBound :: V2 Int -- ^ Boundary
@@ -729,6 +783,7 @@ sBullets :: (MonadFix m, HasTime t s) =>
 sBullets b0 size@(V2 xM yM) =
   let
     collidedEnemies :: ([Bullet], [Enemy]) -> ([Bullet], [Enemy])
+    collidedEnemies (bs, []) = (bs, [])
     collidedEnemies (bs, es) =
       let
         esD' :: [Enemy]
@@ -740,22 +795,41 @@ sBullets b0 size@(V2 xM yM) =
         pos@(P (V2 x' y')) = playerPos p
         (V2 x y) :: V2 Double = fromIntegral <$> V2 x' y'
     -- v Spawn a new bullet if player is firing, and steps all bullets
-    bs' <- sBulletStep <<< (arr spawnBullet) -< (V2 x (y+1), firing, bs)
+    bs' <- sBulletStep <<< (arr spawnBullet) -< (V2 x (y-1), firing, bs)
     (bs'', esD) <- arr collidedEnemies -< (bs', es)
     returnA -< ((bs'', esD), bs'')
 
-sDrawPlayer :: MonadIO m => Signal s m Player ()
+sDrawPlayer :: Signal s IO Player ()
 sDrawPlayer = proc pl -> do
-  let V2 x _ = playerPos pl
+  let P (V2 x _) = playerPos pl
   mkSK_ (-1) drawPlayerAt -< x
   returnA -< ()
 
-testDynamic :: IO ()
-testDynamic = runBox clockSession_ b
+-- | Kills enemies
+updateEnemies :: [Enemy] -> [Enemy] -> [Enemy]
+updateEnemies es kill = filter (\e -> not (e `elem` kill)) es
+
+sBulletEnemies :: (MonadFix m, HasTime t s) =>
+                  [Enemy]
+               -> V2 Int -- ^ Boundary Size
+               -> Signal s m Player ([Bullet], [Enemy])
+sBulletEnemies es0 size =
+  loop $ second (delay []) >>> proc (pl, eks) -> do
+    es' <- mkSW_ es0 updateEnemies -< eks
+    (bs, eks') <- sBullets [] size -< (pl, es')
+    returnA -< ((bs, es'), eks')
+
+main :: IO ()
+main = initConsole defaultInitConfig >> clearScreen >> runBox clockSession_ b
   where
     pl0 = Player (P $ V2 30 28) False
+    enemy0 = [Enemy (P $ V2 30 5) (V2 2 1) 1.5 True]
     size@(V2 x y) = V2 60 30
     b = proc _ -> do
       placeholder <- mkActM $ asciiBox x y Vivid Green -< ()
       pl' <- sUpdatePlayer pl0 <<< arr toPlayerEvent <<< sInput -< placeholder
+      (bs, es') <- sBulletEnemies enemy0 size -< pl'
+      sDrawBullets Vivid Blue -< bs
+      sDrawEnemies Vivid Red -< es'
       sDrawPlayer -< pl'
+      returnA -< ()

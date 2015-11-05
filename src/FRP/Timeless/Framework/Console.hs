@@ -12,6 +12,8 @@ import FRP.Timeless
 import System.IO
 import System.Console.ANSI
 import Control.Monad
+import Linear
+import Control.Monad.IO.Class
 
 data InitConfig = InitConfig
     {
@@ -65,16 +67,26 @@ drawChar c rol col i color = do
 -- | Statefully draw character
 drawCharS :: Char -- ^ The character
            -> ColorIntensity -> Color
-           -> (Int, Int) -- Previous Position
-           -> (Int, Int) -- Next Position
-           -> IO (Int, Int)
-drawCharS c i col (r0,c0) (r',c')
-    | (r0,c0) /= (r',c') =
+           -> V2 Int -- ^ Previous Position, XY coordinate (Not R-C)
+           -> V2 Int -- ^ Next Position, XY coordinate
+           -> IO (V2 Int)
+drawCharS c i col p@(V2 c0 r0) p'@(V2 c' r')
+    | p /= p' =
         do
           drawChar ' ' r0 c0 i col
           drawChar c r' c' i col
-          return (r', c')
-    | otherwise = return (r0, c0)
+          return p'
+    | otherwise = return p
+
+-- | Moves a character
+sMoveChar :: MonadIO m =>
+             Char
+          -> ColorIntensity -> Color
+          -> V2 Int
+          -> Signal s m (V2 Int) ()
+sMoveChar char int col p0@(V2 r c) = mkSK_ p0 f >>> mkConstM (return ())
+  where
+    f p p' = liftIO $ drawCharS char int col p p' 
 
 -- | Clears a certain column range on a certain row
 clearLineRange :: Int -- ^ Row

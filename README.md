@@ -1,5 +1,3 @@
-I am currently stuck on Dynamic Generating. Expect some delays
-
 # Introduction
 
 ## Timeless and Netwire

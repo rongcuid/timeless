@@ -9,7 +9,7 @@ module FRP.Timeless.Signal
     (-- * Signal
      Signal(..)
     , stepSignal
-    
+
     -- * Utilities
     , lstrict
     )
@@ -20,7 +20,7 @@ import Control.Applicative
 import Control.Arrow
 import Control.Monad
 import Control.Monad.Fix
-import Data.Monoid 
+import Data.Monoid
 import Control.Category
 
 data Signal s m a b where
@@ -28,7 +28,7 @@ data Signal s m a b where
     SConst :: Maybe b -> Signal s m a b
     SArr :: (Maybe a -> Maybe b) -> Signal s m a b
     SPure :: (s -> Maybe a -> (Maybe b, Signal s m a b)) -> Signal s m a b
-    SGen :: (Monad m) => 
+    SGen :: (Monad m) =>
             (s -> Maybe a -> m (Maybe b, Signal s m a b)) -> Signal s m a b
 
 
@@ -38,17 +38,17 @@ instance (Monad m) => Category (Signal s m) where
                 (mx1, s1') <- stepSignal s1 ds mx0
                 (mx2, s2') <- stepSignal s2 ds mx1
                 mx2 `seq` return (mx2, s2'. s1')
-    
+
 instance (Monad m) => Arrow (Signal s m) where
     arr f = SArr (fmap f)
     first s = SGen f
         where
-          f ds mxy = 
+          f ds mxy =
               let mx = fst <$> mxy
                   my = snd <$> mxy
                   mmxs' = stepSignal s ds mx in
                 liftM (g my) mmxs'
-          g my (mx', s') = 
+          g my (mx', s') =
               let mx'y = (,) <$> mx' <*> my in
               lstrict (mx'y, first s')
 
@@ -60,7 +60,7 @@ instance (Monad m) => ArrowChoice (Signal s m) where
       Just (Left x) -> Just x
       Just (Right x) -> Nothing
       Nothing -> Nothing
-      
+
   right s =
     SGen $ \ds mmx ->
     liftM (fmap Right ***! right) . stepSignal s ds $
@@ -112,21 +112,21 @@ instance (Monad m) => Functor (Signal s m a) where
 
 instance (Monad m) => Applicative (Signal s m a) where
     pure = SConst . Just
-    sf <*> sx = 
+    sf <*> sx =
         SGen $ \ds mx ->
         liftM2 (\(mf, sf) (mx, sx) -> lstrict (mf <*> mx, sf <*> sx))
         (stepSignal sf ds mx)
         (stepSignal sx ds mx)
 
-            
+
 
 -- | Steps a signal in certain time step
 stepSignal :: (Monad m) =>
-              Signal s m a b 
+              Signal s m a b
            -- ^ Signal to be stepped
            -> s
            -- ^ Delta session
-           -> Maybe a 
+           -> Maybe a
            -- ^ Input
            -- | Stateful output
            -> m (Maybe b, Signal s m a b)

@@ -1,7 +1,7 @@
 -- |
 -- Module:     Control.Wire
--- Copyright:  (c) 2013 Ertugrul Soeylemez
--- Copyright:  (c) 2015 Rongcui Dong
+-- Copyright:  (c) Ertugrul Soeylemez, 2013
+--             (c) Rongcui Dong, 2015
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 

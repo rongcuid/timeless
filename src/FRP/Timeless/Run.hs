@@ -15,8 +15,7 @@ module FRP.Timeless.Run
     where
 
 import Control.Monad.IO.Class
-import FRP.Timeless.Session
-import FRP.Timeless.Signal
+import FRP.Timeless.Internal.Signal
 import Data.Functor.Identity
 import System.IO
 
@@ -26,28 +25,25 @@ import System.IO
 
 testSignal ::
     (MonadIO m, Show b)
-    => Session m s
-    -> (forall a. Signal s Identity a b)
+    => (forall a. Signal Identity a b)
     -> m c
-testSignal s0 n0 = loop s0 n0
+testSignal n0 = loop n0
     where
-    loop s n = do
-        (ds, s') <- stepSession s
-        let Identity (mx, n') = stepSignal n ds (Just ())
+    loop n = do
+        let Identity (mx, n') = stepSignal n (Just ())
         liftIO $ do
             putChar '\r'
             putStr (maybe "Inhibited" show mx)
             putStr "\027[K"
             hFlush stdout
-        loop s' n'
+        loop n'
 
 -- | This command drives a black box of signal network. The driver
 -- knows nothing about the internals of the network, only stops when
 -- the network is inhibited.
-runBox :: (Monad m) => Session m s -> Signal s m () () -> m ()
-runBox s n = do
-  (ds, s') <- stepSession s
-  (mq, n') <- stepSignal n ds (Just ())
+runBox :: (Monad m) => Signal m () () -> m ()
+runBox n = do
+  (mq, n') <- stepSignal n (Just ())
   case mq of
-    Just _ -> runBox s' n'
+    Just _ -> runBox n'
     Nothing -> return ()

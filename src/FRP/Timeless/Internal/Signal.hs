@@ -5,7 +5,7 @@
 -- License:    BSD3
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
-module FRP.Timeless.Signal
+module FRP.Timeless.Internal.Signal
     (-- * Signal
      Signal(..)
     , stepSignal
@@ -23,118 +23,116 @@ import Control.Monad.Fix
 import Data.Monoid
 import Control.Category
 
-data Signal s m a b where
-    SId :: Signal s m a a
-    SConst :: Maybe b -> Signal s m a b
-    SArr :: (Maybe a -> Maybe b) -> Signal s m a b
-    SPure :: (s -> Maybe a -> (Maybe b, Signal s m a b)) -> Signal s m a b
-    SGen :: (Monad m) =>
-            (s -> Maybe a -> m (Maybe b, Signal s m a b)) -> Signal s m a b
+data Signal m a b where
+  SId :: Signal m a a
+  SConst :: Maybe b -> Signal m a b
+  SArr :: (Maybe a -> Maybe b) -> Signal m a b
+  SPure :: (Maybe a -> (Maybe b, Signal m a b)) -> Signal m a b
+  SGen :: (Monad m) =>
+    (Maybe a -> m (Maybe b, Signal m a b)) -> Signal m a b
 
 
-instance (Monad m) => Category (Signal s m) where
+instance (Monad m) => Category (Signal m) where
     id = SId
-    s2 . s1 = SGen $ \ds mx0 -> do
-                (mx1, s1') <- stepSignal s1 ds mx0
-                (mx2, s2') <- stepSignal s2 ds mx1
+    s2 . s1 = SGen $ \mx0 -> do
+                (mx1, s1') <- stepSignal s1 mx0
+                (mx2, s2') <- stepSignal s2 mx1
                 mx2 `seq` return (mx2, s2'. s1')
 
-instance (Monad m) => Arrow (Signal s m) where
+instance (Monad m) => Arrow (Signal m) where
     arr f = SArr (fmap f)
     first s = SGen f
         where
-          f ds mxy =
+          f mxy =
               let mx = fst <$> mxy
                   my = snd <$> mxy
-                  mmxs' = stepSignal s ds mx in
+                  mmxs' = stepSignal s mx in
                 liftM (g my) mmxs'
           g my (mx', s') =
               let mx'y = (,) <$> mx' <*> my in
               lstrict (mx'y, first s')
 
-instance (Monad m) => ArrowChoice (Signal s m) where
+instance (Monad m) => ArrowChoice (Signal m) where
   left s =
-    SGen $ \ds mmx ->
-    liftM (fmap Left ***! left) . stepSignal s ds $
+    SGen $ \mmx ->
+    liftM (fmap Left ***! left) . stepSignal s $
     case mmx of
       Just (Left x) -> Just x
       Just (Right x) -> Nothing
       Nothing -> Nothing
 
   right s =
-    SGen $ \ds mmx ->
-    liftM (fmap Right ***! right) . stepSignal s ds $
+    SGen $ \mmx ->
+    liftM (fmap Right ***! right) . stepSignal s $
     case mmx of
       Just (Left x) -> Nothing
       Just (Right x) -> Just x
       Nothing -> Nothing
 
   sl +++ sr =
-    SGen $ \ds mmx ->
+    SGen $ \mmx ->
     case mmx of
     Just (Left x) -> do
       liftM2 (\ (mx,sl')(_,sr') -> lstrict (fmap Left mx, sl' +++ sr'))
-        (stepSignal sl ds (Just x)) (stepSignal sr ds Nothing)
+        (stepSignal sl (Just x)) (stepSignal sr Nothing)
     Just (Right x) -> do
       liftM2 (\ (_,sl')(mx,sr') -> lstrict (fmap Right mx, sl' +++ sr'))
-        (stepSignal sl ds Nothing) (stepSignal sr ds (Just x))
+        (stepSignal sl Nothing) (stepSignal sr (Just x))
     Nothing ->
       liftM2 (\ (_,sl')(_,sr') -> lstrict (Nothing, sl' +++ sr'))
-        (stepSignal sl ds Nothing) (stepSignal sr ds Nothing)
+        (stepSignal sl Nothing) (stepSignal sr Nothing)
 
   sl ||| sr =
-    SGen $ \ds mmx ->
+    SGen $ \mmx ->
     case mmx of
     Just (Left x) -> do
       liftM2 (\(mx,sl')(_,sr') -> lstrict (mx, sl' ||| sr'))
-        (stepSignal sl ds (Just x)) (stepSignal sr ds Nothing)
+        (stepSignal sl (Just x)) (stepSignal sr Nothing)
     Just (Right x) -> do
       liftM2 (\(_,sl')(mx,sr') -> lstrict (mx, sl' ||| sr'))
-        (stepSignal sl ds Nothing) (stepSignal sr ds (Just x))
+        (stepSignal sl Nothing) (stepSignal sr (Just x))
     Nothing -> do
       liftM2 (\(_,sl')(_,sr') -> lstrict (Nothing, sl' ||| sr'))
-        (stepSignal sl ds Nothing) (stepSignal sr ds Nothing)
+        (stepSignal sl Nothing) (stepSignal sr Nothing)
 
-instance (MonadFix m) => ArrowLoop (Signal s m) where
+instance (MonadFix m) => ArrowLoop (Signal m) where
   loop s =
-    SGen $ \ds mx ->
+    SGen $ \mx ->
       liftM (fmap fst ***! loop) .
       mfix $ \ ~(mx',_) ->
         let d | Just (_,d) <- mx' = d
               | otherwise = error "Feedback broken by inhibition"
-        in stepSignal s ds (fmap (,d) mx)
+        in stepSignal s (fmap (,d) mx)
 
-instance (Monad m) => Functor (Signal s m a) where
+instance (Monad m) => Functor (Signal m a) where
     fmap f SId = SArr $ fmap f
     fmap f (SConst mx) = SConst $ fmap f mx
     fmap f (SArr g) = SArr $ fmap f . g
-    fmap f (SPure g) = SPure $ \ds -> (fmap f ***! fmap f) . g ds
+    fmap f (SPure g) = SPure $ (fmap f ***! fmap f) . g
 
-instance (Monad m) => Applicative (Signal s m a) where
+instance (Monad m) => Applicative (Signal m a) where
     pure = SConst . Just
     sf <*> sx =
-        SGen $ \ds mx ->
+        SGen $ \mx ->
         liftM2 (\(mf, sf) (mx, sx) -> lstrict (mf <*> mx, sf <*> sx))
-        (stepSignal sf ds mx)
-        (stepSignal sx ds mx)
+        (stepSignal sf mx)
+        (stepSignal sx mx)
 
 
 
 -- | Steps a signal in certain time step
 stepSignal :: (Monad m) =>
-              Signal s m a b
+              Signal m a b
            -- ^ Signal to be stepped
-           -> s
-           -- ^ Delta session
            -> Maybe a
            -- ^ Input
            -- | Stateful output
-           -> m (Maybe b, Signal s m a b)
-stepSignal s@(SId) _ mx = return (mx, s)
-stepSignal s@(SConst mx) _ _ = return (mx, s)
-stepSignal s@(SArr f) _ mx = return (f mx, s)
-stepSignal s@(SPure f) ds mx = return (f ds mx)
-stepSignal s@(SGen f) ds mx = f ds mx
+           -> m (Maybe b, Signal m a b)
+stepSignal s@(SId) mx = return (mx, s)
+stepSignal s@(SConst mx) _ = return (mx, s)
+stepSignal s@(SArr f) mx = return (f mx, s)
+stepSignal s@(SPure f) mx = return (f mx)
+stepSignal s@(SGen f) mx = f mx
 
 -- | Left-strict version of '&&&' for functions.
 (&&&!) :: (a -> b) -> (a -> c) -> (a -> (b, c))

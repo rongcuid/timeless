@@ -6,7 +6,6 @@ resolver: lts-7.12
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
-- '../sdl2-ttf'
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps: []

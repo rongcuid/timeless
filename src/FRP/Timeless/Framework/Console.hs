@@ -83,10 +83,10 @@ sMoveChar :: MonadIO m =>
              Char
           -> ColorIntensity -> Color
           -> V2 Int
-          -> Signal s m (V2 Int) ()
+          -> Signal m (V2 Int) ()
 sMoveChar char int col p0@(V2 r c) = mkSK_ p0 f >>> mkConstM (return ())
   where
-    f p p' = liftIO $ drawCharS char int col p p' 
+    f p p' = liftIO $ drawCharS char int col p p'
 
 -- | Clears a certain column range on a certain row
 clearLineRange :: Int -- ^ Row

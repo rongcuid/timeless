@@ -37,34 +37,43 @@ import Data.Time.Clock
 -- Stream and Cell
 
 -- | A Stream of discrete events.
-type Stream a b = forall s . Signal IO (Maybe a) (Maybe b)
+type Stream a b = Signal IO (Maybe a) (Maybe b)
 
 -- | A Source of discrete event
-type StreamSource s b = Signal IO () (Maybe b)
+type StreamSource b = Signal IO () (Maybe b)
 -- | A Sink of discrete event
-type StreamSink s a = Signal IO (Maybe a) ()
+type StreamSink a = Signal IO (Maybe a) ()
 
 
 -- | A Cell of continuous value.
 --
 -- Cells must not be inhibited
-type Cell a b = forall s . Signal IO a b
+type Cell a b = Signal IO a b
 
 -- | A Source of discrete event
-type CellSource s b = Signal IO () b
+type CellSource b = Signal IO () b
 -- | A Sink of discrete event
-type CellSink s a = Signal IO a ()
+type CellSink a = Signal IO a ()
 
 -- * FRP Primitives
 
-source :: Signal m a b -> (forall s . Signal m a b)
-source = undefined
+sourceC :: IO b -> CellSource b
+sourceC = mkActM
 
--- sink :: StreamSink s a -> Stream a ()
--- sink = undefined
+sinkC :: (a -> IO ()) -> CellSink a
+sinkC = mkKleisli_
+
+sourceS :: IO (Maybe b) -> StreamSource b
+sourceS = mkActM
+
+sinkS :: (a -> IO ()) -> StreamSink a
+sinkS f = mkKleisli_ $ \ma ->
+  case ma of
+    Just a -> f a >> return ()
+    Nothing -> return ()
 
 -- | Merges two 'Stream'. When simultaneous, use the merge function
-mergeS :: ((a,a) -> a) -> forall s m . Signal m (Maybe a, Maybe a) (Maybe a)
+mergeS :: ((a,a) -> a) -> Signal m (Maybe a, Maybe a) (Maybe a)
 mergeS f = SArr (fmap g)
   where
     g (Just a, Nothing) = Just a
@@ -76,7 +85,7 @@ mergeS f = SArr (fmap g)
 orElse = mergeS fst
 
 -- | Holds a discrete value to be continuous. An initial value must be given
-hold :: a -> forall s m . Signal m (Maybe a) a
+hold :: a -> Signal m (Maybe a) a
 hold a0 = mkSW_ a0 $ \a ma ->
   case ma of
     Just a' -> a'
@@ -92,16 +101,19 @@ filterS pred = SArr . fmap $ \ma -> do
 
 -- | Takes a snapshot of b when an event a comes. Meanwhile, transform the
 -- 'Stream' with the 'Cell' value
-snapshot :: ((a,b) -> c) -> forall s m . Signal m (Maybe a, b) (Maybe c)
+snapshot :: ((a,b) -> c) -> Signal m (Maybe a, b) (Maybe c)
 snapshot f = SArr . fmap $ \(ma, b) ->
   case ma of
     Just a -> Just $ f (a,b)
     Nothing -> Nothing
 
+-- | This conviniently just samples a Cell
+sample = snapshot snd
+
 -- | A state block, updates on event. Note that this can be
 -- constructed with 'Signal' directly, but we are using primitives
 -- instead, for easy reasoning
-state :: s' -> ((a, s') -> s') -> (forall s m . MonadFix m => Signal m (Maybe a) s')
+state :: MonadFix m => s' -> ((a, s') -> s') -> Signal m (Maybe a) s'
 state s0 update = loop $ proc (ma, s) -> do
   sDelay <- delay s0 -< s
   s' <- hold s0 <<< snapshot update -< (ma, sDelay)

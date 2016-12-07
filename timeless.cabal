@@ -10,7 +10,7 @@ name:                timeless
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             1.0.0.0
+version:             1.0.0.1
 
 homepage: https://github.com/carldong/timeless
 
@@ -20,7 +20,7 @@ bug-reports: https://github.com/carldong/timeless/issues
 synopsis: An Arrow based Functional Reactive Programming library
 
 -- A longer description of the package.
-description: Timeless is based on a almost completely rewriten Netwire 5 core, plus numerous (not yet for now) extensions to provide an extensive library for Arrowrized Functional Reactive Programming with continuous time semantics.
+description: Timeless aims to be a comprehensive FRP framework. Version 1 tries to build a system like the book Functional Reactive Programming
 
 -- The license under which the package is released.
 license:             BSD3
@@ -81,7 +81,7 @@ library
   -- other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.6 && < 5
+  build-depends:       base >=4.9 && < 5
                      , time
                      , transformers
                      , ansi-terminal

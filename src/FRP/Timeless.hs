@@ -14,12 +14,15 @@ module FRP.Timeless
   , Cell
   , StreamCell
   -- * FRP Primitives
+  , arrS
+  , neverS
+  , onceS
   , sourceC
   , sinkC
   , sourceS
   , sinkS
   , mergeS
-  , orElse
+  , mergeSP
   , hold
   , filterS
   , snapshot
@@ -75,6 +78,17 @@ type StreamCell a b = Signal IO (Maybe a) b
 
 -- * FRP Primitives
 
+arrS :: (a -> b) -> Stream a b
+arrS = arr . fmap
+
+-- | A 'StreamSource' that never fires
+neverS :: StreamSource b
+neverS = mkConst $ Just Nothing
+
+-- | A 'StreamSource' that fires only ones
+onceS :: b -> StreamSource b
+onceS b = mkSF $ \_ -> (Just b, neverS)
+
 sourceC :: IO b -> CellSource b
 sourceC = mkActM
 
@@ -92,15 +106,15 @@ sinkS f = mkKleisli_ $ \ma ->
 
 -- | Merges two 'Stream'. When simultaneous, use the merge function
 mergeS :: ((a,a) -> a) -> Signal IO (Maybe a, Maybe a) (Maybe a)
-mergeS f = SArr (fmap g)
+mergeS f = mkSF_ g
   where
     g (Just a, Nothing) = Just a
     g (Nothing, Just b) = Just b
     g (Nothing, Nothing) = Nothing
     g (Just a, Just b) = Just $ f (a,b)
 
--- | Merges two 'Stream' with precedence to first.
-orElse = mergeS fst
+-- | Merges two 'Stream' with precedence to first. P stands for Priority
+mergeSP = mergeS fst
 
 -- | Holds a discrete value to be continuous. An initial value must be given
 hold :: a -> StreamCell a a
@@ -112,7 +126,7 @@ hold a0 = mkSW_ a0 $ \a ma ->
 -- | Filters stream of event.
 -- TODO: In future, might implement 'Foldable'
 filterS :: (a -> Bool) -> Stream a a
-filterS pred = SArr . fmap $ \ma -> do
+filterS pred = mkSF_ $ \ma -> do
   a <- ma
   if (pred a) then ma
               else Nothing
@@ -120,7 +134,7 @@ filterS pred = SArr . fmap $ \ma -> do
 -- | Takes a snapshot of b when an event a comes. Meanwhile, transform the
 -- 'Stream' with the 'Cell' value
 snapshot :: ((a,b) -> c) -> Signal IO (Maybe a, b) (Maybe c)
-snapshot f = SArr . fmap $ \(ma, b) ->
+snapshot f = mkSF_ $ \(ma, b) ->
   case ma of
     Just a -> Just $ f (a,b)
     Nothing -> Nothing
@@ -132,7 +146,7 @@ sample = snapshot snd
 -- | A state block, updates on event. Note that this can be
 -- constructed with 'Signal' directly, but we are using primitives
 -- instead, for easy reasoning
-state :: s' -> ((a, s') -> s') -> Signal IO (Maybe a) s'
+state :: s -> ((a, s) -> s) -> StreamCell a s
 state s0 update = loop $ proc (ma, s) -> do
   sDelay <- delay s0 -< s
   s' <- hold s0 <<< snapshot update -< (ma, sDelay)

@@ -19,7 +19,7 @@ Please do not expect this library to finish before t → ∞. I can only hope th
 
 # Tutorial
 
-Read the `FRP.Timeless.Tutorial` module, which is written in Literate Haskell. It is a very detailed implementation example of a simple interactive program.
+Look at the package [timeless-tutorials](https://hackage.haskell.org/package/timeless-tutorials). It is just started by me, and should expand later.
 
 [1]:http://stackoverflow.com/questions/30905930/what-can-be-a-minimal-example-of-game-written-in-haskell
 [2]:http://stackoverflow.com/questions/30992299/console-interactivity-in-netwire

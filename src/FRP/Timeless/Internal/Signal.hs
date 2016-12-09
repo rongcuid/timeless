@@ -128,11 +128,11 @@ stepSignal :: (Monad m) =>
            -- ^ Input
            -- | Stateful output
            -> m (Maybe b, Signal m a b)
-stepSignal s@(SId) mx = return (mx, s)
-stepSignal s@(SConst mx) _ = return (mx, s)
-stepSignal s@(SArr f) mx = return (f mx, s)
-stepSignal s@(SPure f) mx = return (f mx)
-stepSignal s@(SGen f) mx = f mx
+stepSignal s@(SId) mx = return $ lstrict (mx, s)
+stepSignal s@(SConst mx) _ = return $ lstrict (mx, s)
+stepSignal s@(SArr f) mx = return $ lstrict (f mx, s)
+stepSignal s@(SPure f) mx = return $ lstrict (f mx)
+stepSignal s@(SGen f) mx = lstrict <$> f mx
 
 -- | Left-strict version of '&&&' for functions.
 (&&&!) :: (a -> b) -> (a -> c) -> (a -> (b, c))

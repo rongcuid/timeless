@@ -6,17 +6,21 @@
 -- Maintainer: Rongcui Dong <karl_1702@188.com>
 
 module FRP.Timeless
-  ( -- * Reexports
-    module FRP.Timeless.Run
-
-  -- * High level FRP
+  ( module FRP.Timeless.Run
+    -- * High level FRP
+  , Signal
   , Stream
+  , StreamSource
+  , StreamSink
+  , CellSource
+  , CellSink
   , Cell
   , StreamCell
   -- * FRP Primitives
   , arrS
   , neverS
   , onceS
+  , delay
   , sourceC
   , sinkC
   , sourceS
@@ -25,6 +29,7 @@ module FRP.Timeless
   , mergeSP
   , hold
   , filterS
+  , filterSM
   , snapshot
   , sample
   , state
@@ -38,43 +43,46 @@ module FRP.Timeless
   , module Control.Applicative
   , module Control.Arrow
   , module Control.Category
-  , module Data.Time.Clock
   )
     where
+
+import Debug.Trace
 
 import Prelude hiding ((.), id)
 import Control.Applicative
 import Control.Arrow
+import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.Zip
 import Control.Category
-import FRP.Timeless.Internal.Signal
+import qualified FRP.Timeless.Internal.Signal as Internal
 import FRP.Timeless.Internal.Prefab
 import FRP.Timeless.Run
-import Data.Time.Clock
 
 -- Stream and Cell
 
+type Signal a b = Internal.Signal IO a b
+
 -- | A Stream of discrete events.
-type Stream a b = Signal IO (Maybe a) (Maybe b)
+type Stream a b = Signal (Maybe a) (Maybe b)
 
 -- | A Source of discrete event
-type StreamSource b = Signal IO () (Maybe b)
+type StreamSource b = Signal () (Maybe b)
 -- | A Sink of discrete event
-type StreamSink a = Signal IO (Maybe a) ()
+type StreamSink a = Signal (Maybe a) ()
 
 
 -- | A Cell of continuous value.
 --
 -- Cells must not be inhibited
-type Cell a b = Signal IO a b
+type Cell a b = Signal a b
 
 -- | A Source of discrete event
-type CellSource b = Signal IO () b
+type CellSource b = Signal () b
 -- | A Sink of discrete event
-type CellSink a = Signal IO a ()
+type CellSink a = Signal a ()
 
-type StreamCell a b = Signal IO (Maybe a) b
+type StreamCell a b = Signal (Maybe a) b
 
 -- * FRP Primitives
 
@@ -105,7 +113,7 @@ sinkS f = mkKleisli_ $ \ma ->
     Nothing -> return ()
 
 -- | Merges two 'Stream'. When simultaneous, use the merge function
-mergeS :: ((a,a) -> a) -> Signal IO (Maybe a, Maybe a) (Maybe a)
+mergeS :: ((a,a) -> a) -> Signal (Maybe a, Maybe a) (Maybe a)
 mergeS f = mkSF_ g
   where
     g (Just a, Nothing) = Just a
@@ -131,16 +139,19 @@ filterS pred = mkSF_ $ \ma -> do
   if (pred a) then ma
               else Nothing
 
+filterSM :: Stream (Maybe a) a
+filterSM = mkSF_ $ join
+
 -- | Takes a snapshot of b when an event a comes. Meanwhile, transform the
 -- 'Stream' with the 'Cell' value
-snapshot :: ((a,b) -> c) -> Signal IO (Maybe a, b) (Maybe c)
+snapshot :: ((a,b) -> c) -> Signal (Maybe a, b) (Maybe c)
 snapshot f = mkSF_ $ \(ma, b) ->
   case ma of
     Just a -> Just $ f (a,b)
     Nothing -> Nothing
 
 -- | This conviniently just samples a Cell
-sample :: Signal IO (Maybe a, b) (Maybe b)
+sample :: Signal (Maybe a, b) (Maybe b)
 sample = snapshot snd
 
 -- | A state block, updates on event. Note that this can be
@@ -149,7 +160,7 @@ sample = snapshot snd
 state :: s -> ((a, s) -> s) -> StreamCell a s
 state s0 update = loop $ proc (ma, s) -> do
   sDelay <- delay s0 -< s
-  s' <- hold s0 <<< snapshot update -< (ma, sDelay)
+  s' <- hold s0 <<< snapshot update  -< (ma, sDelay)
   returnA -< (s', s')
 
 mzip3 (ma, mb, mc) = do
@@ -192,16 +203,16 @@ mzip7 (ma, mb, mc, md, me, mf, mg) = do
     g <- mg
     return (a, b, c, d, e, f, g)
 
-zipS :: Signal m (Maybe a, Maybe b) (Maybe (a, b))
-zipS = SArr $ fmap $ uncurry mzip
+zipS :: Internal.Signal m (Maybe a, Maybe b) (Maybe (a, b))
+zipS = mkSF_ $ uncurry mzip
 
-zipS3 :: Signal m (Maybe a, Maybe b, Maybe c) (Maybe (a, b, c))
-zipS3 = SArr $ fmap mzip3
-zipS4 :: Signal m (Maybe a, Maybe b, Maybe c, Maybe d) (Maybe (a, b, c, d))
-zipS4 = SArr $ fmap mzip4
-zipS5 :: Signal m (Maybe a, Maybe b, Maybe c, Maybe d, Maybe e) (Maybe (a, b, c, d, e))
-zipS5 = SArr $ fmap mzip5
-zipS6 :: Signal m (Maybe a, Maybe b, Maybe c, Maybe d, Maybe e, Maybe f) (Maybe (a, b, c, d, e, f))
-zipS6 = SArr $ fmap mzip6
-zipS7 :: Signal m (Maybe a, Maybe b, Maybe c, Maybe d, Maybe e, Maybe f, Maybe g) (Maybe (a, b, c, d, e, f, g))
-zipS7 = SArr $ fmap mzip7
+zipS3 :: Internal.Signal m (Maybe a, Maybe b, Maybe c) (Maybe (a, b, c))
+zipS3 = mkSF_ mzip3
+zipS4 :: Internal.Signal m (Maybe a, Maybe b, Maybe c, Maybe d) (Maybe (a, b, c, d))
+zipS4 = mkSF_ mzip4
+zipS5 :: Internal.Signal m (Maybe a, Maybe b, Maybe c, Maybe d, Maybe e) (Maybe (a, b, c, d, e))
+zipS5 = mkSF_ mzip5
+zipS6 :: Internal.Signal m (Maybe a, Maybe b, Maybe c, Maybe d, Maybe e, Maybe f) (Maybe (a, b, c, d, e, f))
+zipS6 = mkSF_ mzip6
+zipS7 :: Internal.Signal m (Maybe a, Maybe b, Maybe c, Maybe d, Maybe e, Maybe f, Maybe g) (Maybe (a, b, c, d, e, f, g))
+zipS7 = mkSF_ mzip7

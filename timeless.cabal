@@ -10,7 +10,7 @@ name:                timeless
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             1.0.1.1
+version:             1.0.1.2
 
 homepage: https://github.com/carldong/timeless
 

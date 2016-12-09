@@ -160,7 +160,7 @@ sample = snapshot snd
 state :: s -> ((a, s) -> s) -> StreamCell a s
 state s0 update = loop $ proc (ma, s) -> do
   sDelay <- delay s0 -< s
-  s' <- hold s0 <<< snapshot update  -< (ma, sDelay)
+  s' <- (hold s0) <<< (snapshot update)  -< (ma, sDelay)
   returnA -< (s', s')
 
 mzip3 (ma, mb, mc) = do

@@ -45,5 +45,5 @@ runBox :: (Monad m) => Signal m () () -> m ()
 runBox n = do
   (mq, n') <- stepSignal n (Just ())
   case mq of
-    Just _ -> runBox n'
+    Just _ -> n' `seq` runBox n'
     Nothing -> return ()

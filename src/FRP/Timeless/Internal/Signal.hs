@@ -22,6 +22,7 @@ import Control.Monad
 import Control.Monad.Fix
 import Data.Monoid
 import Control.Category
+import Control.Parallel.Strategies
 
 data Signal m a b where
   SId :: Signal m a a
@@ -41,21 +42,26 @@ instance (Monad m) => Category (Signal m) where
 
 instance (Monad m) => Arrow (Signal m) where
     arr f = SArr (fmap f)
-    first s = SGen f
-        where
-          f mxy =
-              let mx = fst <$> mxy
-                  my = snd <$> mxy
-                  mmxs' = stepSignal s mx in
-                liftM (g my) mmxs'
-          g my (mx', s') =
-              let mx'y = (,) <$> mx' <*> my in
-              lstrict (mx'y, first s')
+
+    first s' =
+        SGen $ \mxy' ->
+            fmap (\(mx, s) -> lstrict (liftA2 (,) mx (fmap snd mxy'), first s))
+                  (stepSignal s' (fmap fst mxy'))
+    -- first s = SGen f
+    --     where
+    --       f mxy =
+    --           let mx = fst <$> mxy
+    --               my = snd <$> mxy
+    --               mmxs' = stepSignal s mx in
+    --             fmap (g my) mmxs'
+    --       g my (mx', s') =
+    --           let mx'y = (,) <$> mx' <*> my in
+    --           lstrict (mx'y, first s')
 
 instance (Monad m) => ArrowChoice (Signal m) where
   left s =
     SGen $ \mmx ->
-    liftM (fmap Left ***! left) . stepSignal s $
+    fmap (fmap Left ***! left) . stepSignal s $
     case mmx of
       Just (Left x) -> Just x
       Just (Right x) -> Nothing
@@ -63,7 +69,7 @@ instance (Monad m) => ArrowChoice (Signal m) where
 
   right s =
     SGen $ \mmx ->
-    liftM (fmap Right ***! right) . stepSignal s $
+    fmap (fmap Right ***! right) . stepSignal s $
     case mmx of
       Just (Left x) -> Nothing
       Just (Right x) -> Just x
@@ -72,10 +78,10 @@ instance (Monad m) => ArrowChoice (Signal m) where
   sl +++ sr =
     SGen $ \mmx ->
     case mmx of
-    Just (Left x) -> do
+    Just (Left x) ->
       liftM2 (\ (mx,sl')(_,sr') -> lstrict (fmap Left mx, sl' +++ sr'))
         (stepSignal sl (Just x)) (stepSignal sr Nothing)
-    Just (Right x) -> do
+    Just (Right x) ->
       liftM2 (\ (_,sl')(mx,sr') -> lstrict (fmap Right mx, sl' +++ sr'))
         (stepSignal sl Nothing) (stepSignal sr (Just x))
     Nothing ->
@@ -85,20 +91,20 @@ instance (Monad m) => ArrowChoice (Signal m) where
   sl ||| sr =
     SGen $ \mmx ->
     case mmx of
-    Just (Left x) -> do
+    Just (Left x) ->
       liftM2 (\(mx,sl')(_,sr') -> lstrict (mx, sl' ||| sr'))
         (stepSignal sl (Just x)) (stepSignal sr Nothing)
-    Just (Right x) -> do
+    Just (Right x) ->
       liftM2 (\(_,sl')(mx,sr') -> lstrict (mx, sl' ||| sr'))
         (stepSignal sl Nothing) (stepSignal sr (Just x))
-    Nothing -> do
+    Nothing ->
       liftM2 (\(_,sl')(_,sr') -> lstrict (Nothing, sl' ||| sr'))
         (stepSignal sl Nothing) (stepSignal sr Nothing)
 
 instance (MonadFix m) => ArrowLoop (Signal m) where
   loop s =
     SGen $ \mx ->
-      liftM (fmap fst ***! loop) .
+      fmap (fmap fst ***! loop) .
       mfix $ \ ~(mx',_) ->
         let d | Just (_,d) <- mx' = d
               | otherwise = error "Feedback broken by inhibition"
@@ -128,11 +134,14 @@ stepSignal :: (Monad m) =>
            -- ^ Input
            -- | Stateful output
            -> m (Maybe b, Signal m a b)
-stepSignal s@(SId) mx = return $ lstrict (mx, s)
-stepSignal s@(SConst mx) _ = return $ lstrict (mx, s)
-stepSignal s@(SArr f) mx = return $ lstrict (f mx, s)
-stepSignal s@(SPure f) mx = return $ lstrict (f mx)
-stepSignal s@(SGen f) mx = lstrict <$> f mx
+stepSignal s Nothing = return (Nothing, s)
+stepSignal s (Just x) = x `seq` step s (Just x)
+  where
+    step SId mx = return (mx, SId)
+    step (SConst mx) _ = return (mx, SConst mx)
+    step (SArr f) mx = return (f mx, SArr f)
+    step (SPure f) mx = return $ f mx
+    step (SGen f) mx = f mx
 
 -- | Left-strict version of '&&&' for functions.
 (&&&!) :: (a -> b) -> (a -> c) -> (a -> (b, c))
@@ -150,4 +159,3 @@ stepSignal s@(SGen f) mx = lstrict <$> f mx
 -- | Left strict tuple
 lstrict :: (a,b) -> (a,b)
 lstrict (x,y) = x `seq` (x,y)
-

@@ -86,7 +86,7 @@ library
                      , transformers
                      , ansi-terminal
                      , linear
-
+                     , parallel
   -- Directories containing source files.
   hs-source-dirs:      src
 

@@ -62,7 +62,7 @@ mkSW_ :: b -> (b -> a -> b) -> Signal m a b
 mkSW_ b0 f = mkSF $ g b0
     where
       g b0 x = let b1 = f b0 x in
-               (b1, mkSW_ b1 f)
+                   lstrict (b1, mkSW_ b1 f)
 
 -- | Make a signal that inhibits forever
 mkEmpty :: Signal m a b
@@ -78,7 +78,8 @@ mkConst = SConst
 
 -- | Make a pure stateful signal from given transition function
 mkPure :: (a -> (Maybe b, Signal m a b)) -> Signal m a b
-mkPure f = SPure $ \mx ->
+mkPure f =
+  SPure $ \mx ->
   case mx of
     Just x -> lstrict $ f x
     Nothing -> (Nothing, mkPure f)
@@ -102,14 +103,16 @@ mkGen f = SGen $ \ mx ->
 
 -- | Make a stateless signal from given function
 mkGen_ :: (Monad m) => (a -> m (Maybe b)) -> Signal m a b
-mkGen_ f = SGen $ \mx ->
+mkGen_ f = loop
+  where
+    loop = SGen $ \mx ->
            case mx of
              Just x ->
                  let mmx' = f x in
-                     liftM (lstrict . (, mkGen_ f)) mmx'
+                     liftM (lstrict . (, loop)) mmx'
                  -- From (m (Maybe b)) to (m (Maybe b, Signal m a b))
              Nothing ->
-               return (Nothing, mkGen_ f)
+               return (Nothing, loop)
 
 -- | Make a stateless signal from Kleisli function
 mkKleisli_ :: (Monad m) => (a -> m b) -> Signal m a b
